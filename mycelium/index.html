@@ -78,7 +78,7 @@ button:focus-visible{outline:2px solid var(--sap);outline-offset:2px}
 <div class="hud top">
   <div class="brand"><span class="name">Мицелий</span><span class="sub" id="lvl">Поляна</span></div>
   <div class="stats">
-    <span>Деревья <b id="st-trees">1/7</b></span>
+    <span>Ожило <b id="st-trees">1/7</b></span>
     <span class="energy" title="Энергия"><i id="st-en"></i></span>
     <b id="st-time">0:00</b>
   </div>
@@ -103,7 +103,7 @@ button:focus-visible{outline:2px solid var(--sap);outline-offset:2px}
     <h1>Мицелий</h1>
     <p class="pitch">Вырастите грибницу, которая соединит лес. Сухие деревья оживают, когда сеть дотягивается до них. Она растёт сама, а вы подсказываете ей путь.</p>
     <ul>
-      <li><b>Расти:</b> держите палец там, куда должна тянуться сеть.</li>
+      <li><b>Расти:</b> держите палец там, куда должна тянуться сеть. Сама она до дальних деревьев не дойдёт.</li>
       <li><b>Резать:</b> проведите поперёк ветви, чтобы отсечь её.</li>
       <li>Ожившие деревья дают энергию, вдоль живых путей вырастают грибы. Тупики отмирают сами.</li>
     </ul>
@@ -129,7 +129,9 @@ const NAMES = { glade: 'Поляна', grove: 'Роща', tokyo: 'Токио' };
 
 let W = 0, H = 0, DPR = 1, R = { x: 0, y: 0, w: 0, h: 0 };
 let S = null, levelId = 'glade', mode = 'grow', muted = false, menuOpen = true;
-let bg = document.createElement('canvas');
+const mk = () => document.createElement('canvas');
+const bg = mk(), bgDry = mk(), rev = mk(), props = mk(), BLOB = mk();
+{ BLOB.width = BLOB.height = 128; const g = BLOB.getContext('2d'), q = g.createRadialGradient(64, 64, 0, 64, 64, 64); q.addColorStop(0, 'rgba(255,255,255,1)'); q.addColorStop(.55, 'rgba(255,255,255,.8)'); q.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = q; g.fillRect(0, 0, 128, 128); }
 const ptr = { down: false, x: 0, y: 0, px: 0, py: 0 };
 
 /* ---------- levels ---------- */
@@ -144,7 +146,7 @@ const KANTO_WATER = [[35.50, 139.90, 0.12], [35.36, 139.79, 0.085], [35.12, 139.
 function buildLevel(id) {
   const m = Math.min(R.w, R.h);
   const P = (x, y) => ({ x: R.x + x * R.w, y: R.y + y * R.h });
-  const L = { trees: [], foods: [], rocks: [], drys: [], sandbox: false, seasons: true, water: false, incomeMul: .35, start: 120, bonus: 30 };
+  const L = { trees: [], foods: [], rocks: [], drys: [], sandbox: false, seasons: true, water: false, incomeMul: .35, start: 120, bonus: 30, pull: 55 };
   if (id === 'tokyo') {
     L.seasons = false; L.water = true; L.incomeMul = .45; L.start = 140; L.bonus = 25;
     const lon0 = 138.92, lon1 = 140.6, lat0 = 35.12, lat1 = 36.66, k = Math.cos(35.9 * Math.PI / 180);
@@ -154,11 +156,11 @@ function buildLevel(id) {
     for (const [name, lat, lon] of KANTO) L.trees.push({ ...G(lat, lon), r: 7, name });
     for (const [lat, lon, r] of KANTO_WATER) L.rocks.push({ ...G(lat, lon), r: r * sc });
   } else if (id === 'grove') {
-    [[.5, .93], [.15, .72], [.85, .70], [.5, .52], [.2, .3], [.8, .28], [.5, .07]].forEach(([x, y]) => L.trees.push({ ...P(x, y), r: 11 }));
+    [[.5, .93], [.15, .72], [.85, .70], [.5, .52], [.2, .3], [.8, .28], [.5, .1]].forEach(([x, y]) => L.trees.push({ ...P(x, y), r: 11 }));
     [[.33, .62, .09], [.68, .6, .08], [.5, .33, .1], [.1, .5, .06], [.9, .47, .06]].forEach(([x, y, r]) => L.rocks.push({ ...P(x, y), r: r * m }));
     [[.5, .74, .13], [.3, .16, .12], [.76, .14, .1]].forEach(([x, y, r]) => L.drys.push({ ...P(x, y), r: r * m }));
   } else {
-    L.sandbox = true; L.incomeMul = 3; L.start = 150; L.bonus = 25;
+    L.sandbox = true; L.pull = 130; L.incomeMul = 3; L.start = 150; L.bonus = 25;
     L.trees.push({ ...P(.5, .55), r: 12 });
     for (let i = 0; i < 3; i++) L.rocks.push({ ...P(rnd(.12, .88), rnd(.1, .9)), r: rnd(.05, .09) * m });
     for (let i = 0; i < 2; i++) L.drys.push({ ...P(rnd(.15, .85), rnd(.1, .9)), r: rnd(.1, .15) * m });
@@ -227,7 +229,7 @@ function compact() {
 function init(id) {
   levelId = id;
   const L = buildLevel(id);
-  S = { ...L, nodes: [], edges: [], tips: [], grid: new Map(), pulses: [], rings: [], decor: [], accM: 0, paths: [], dead: 0,
+  S = { ...L, nodes: [], edges: [], tips: [], grid: new Map(), pulses: [], rings: [], decor: [], accM: 0, bloom: 0, paths: [], dead: 0,
     energy: L.start, spent: 0, t: 0, play: 0, maxTips: 18, dirty: true, won: false, ideal: false, wint: 0, winter: false,
     accA: 0, accS: 0, accF: 0, accP: 0, accFood: 0, sapling: 0, aliveLen: 0, mst: [], mstLen: 0 };
   S.trees.forEach((t, i) => { t.n = addNode(t.x, t.y, i); t.connected = i === 0; });
@@ -251,7 +253,7 @@ function advance(t) {
   const n = S.nodes[t.n];
   let vx = Math.cos(t.a), vy = Math.sin(t.a), guided = false;
   for (const f of S.foods) { if (!f.alive) continue; const dx = f.x - n.x, dy = f.y - n.y, d = Math.hypot(dx, dy); if (d < 150 && d > 1) { const w = 1.2 / (1 + d / 30); vx += dx / d * w; vy += dy / d * w; } }
-  for (const tr of S.trees) { if (tr.connected) continue; const dx = tr.x - n.x, dy = tr.y - n.y, d = Math.hypot(dx, dy); if (d < 130 && d > 1) { const w = 1.6 / (1 + d / 40); vx += dx / d * w; vy += dy / d * w; } }
+  for (const tr of S.trees) { if (tr.connected) continue; const dx = tr.x - n.x, dy = tr.y - n.y, d = Math.hypot(dx, dy); if (d < S.pull && d > 1) { const w = 1.6 / (1 + d / 40); vx += dx / d * w; vy += dy / d * w; } }
   if (ptr.down && mode === 'grow' && !menuOpen) { const dx = ptr.x - n.x, dy = ptr.y - n.y, d = Math.hypot(dx, dy); if (d < 300 && d > 4) { vx += dx / d * 3.2; vy += dy / d * 3.2; guided = true; } }
   let da = Math.atan2(vy, vx) - t.a; da = Math.atan2(Math.sin(da), Math.cos(da));
   t.a += clamp(da, -.38, .38) + (Math.random() - .5) * (guided ? .25 : .55);
@@ -334,6 +336,7 @@ function step(dt) {
   S.t += dt; if (!menuOpen) S.play += dt;
   if (S.seasons) { const w = (S.t % 75) > 57; if (w && !S.winter) toast('Зима: рост медленнее, тупики отмирают быстрее'); S.winter = w; }
   S.wint += ((S.winter ? 1 : 0) - S.wint) * Math.min(1, dt * 1.5);
+  S.bloom += ((S.won ? 1 : 0) - S.bloom) * Math.min(1, dt * .5);
   for (let i = 0; i < S.trees.length; i++) { const t = S.trees[i]; if (!t.blobs) dress(t, i); t.life += ((t.connected ? 1 : 0) - t.life) * Math.min(1, dt * 1.3); }
   if ((S.accM += dt) > .25) {
     S.accM = 0;
@@ -372,7 +375,7 @@ function step(dt) {
       if (p) { const i = S.trees.length; S.trees.push({ ...p, r: 11, n: addNode(p.x, p.y, i), connected: false }); ring(p.x, p.y, '242,181,90'); toast('Вырос новый росток'); mst(); }
     }
   } else if (!S.won && S.cnt === S.trees.length) { S.won = true; $('win').hidden = false; $('w-ideal').hidden = false;
-    toast(levelId === 'tokyo' ? 'Все города связаны. «Идеал» показывает кратчайшее дерево, не настоящие железные дороги' : 'Все деревья связаны. Обрежьте лишнее и сравните с идеалом'); tone(523.3, 2.2, .1); tone(659.3, 2.4, .08); tone(784, 2.6, .06); }
+    toast(levelId === 'tokyo' ? 'Все города связаны. «Идеал» показывает кратчайшее дерево, не настоящие железные дороги' : 'Лес ожил. Обрежьте лишнее и сравните с идеалом'); tone(523.3, 2.2, .1); tone(659.3, 2.4, .08); tone(784, 2.6, .06); }
 }
 function sprout() {
   let best = -1, bd = 1e12;
@@ -381,7 +384,7 @@ function sprout() {
     if (!(n.tree === 0 || n.adj.some(ei => !S.edges[ei].dying))) continue;
     if (n.tree > 0 && !S.trees[n.tree].connected) continue;
     let d = 1e9; for (const tr of S.trees) if (!tr.connected) d = Math.min(d, (tr.x - n.x) ** 2 + (tr.y - n.y) ** 2);
-    d *= rnd(.5, 1.5); if (d < bd) { bd = d; best = i; }
+    d = S.sandbox ? d * rnd(.5, 1.5) : Math.random(); if (d < bd) { bd = d; best = i; }
   }
   if (best >= 0) spawnTip(best, rnd(TAU));
 }
@@ -400,20 +403,24 @@ function dress(t, i) {
   t.fl = [];
   for (let j = 0; j < (S.water ? 4 : 11); j++) { const a = rnd(TAU), d = t.cr * rnd(1.15, 1.95), x = Math.cos(a) * d, y = Math.sin(a) * d; if (!blocked(t.x + x, t.y + y)) t.fl.push({ x, y, c: PETAL[j % 4] }); }
 }
-function paintBg() {
-  bg.width = W * DPR; bg.height = H * DPR; const g = bg.getContext('2d'); g.scale(DPR, DPR);
-  const gr = g.createRadialGradient(W / 2, H * .5, 0, W / 2, H * .5, Math.max(W, H) * .72);
-  gr.addColorStop(0, '#2b4335'); gr.addColorStop(.6, '#223629'); gr.addColorStop(1, '#16241c'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
-  for (let i = 0; i < 46; i++) { // moss patches
-    const x = rnd(W), y = rnd(H), r = rnd(30, 90), q = g.createRadialGradient(x, y, 0, x, y, r), c = Math.random() < .5 ? '92,140,84' : '60,104,84';
-    q.addColorStop(0, `rgba(${c},.13)`); q.addColorStop(1, `rgba(${c},0)`); g.fillStyle = q; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+function ground(cv, lush) { // the same floor twice: withered, and alive
+  cv.width = W * DPR; cv.height = H * DPR; const g = cv.getContext('2d'); g.scale(DPR, DPR);
+  const gr = g.createRadialGradient(W / 2, H * .5, 0, W / 2, H * .5, Math.max(W, H) * .72), C = lush ? ['#2f4a39', '#243a2c', '#16241c'] : ['#35352e', '#2b2b26', '#1c1d1a'];
+  gr.addColorStop(0, C[0]); gr.addColorStop(.6, C[1]); gr.addColorStop(1, C[2]); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 46; i++) {
+    const x = rnd(W), y = rnd(H), r = rnd(30, 90), q = g.createRadialGradient(x, y, 0, x, y, r), c = lush ? (Math.random() < .5 ? '96,150,88' : '60,110,86') : '120,110,92';
+    q.addColorStop(0, `rgba(${c},${lush ? .16 : .07})`); q.addColorStop(1, `rgba(${c},0)`); g.fillStyle = q; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
   }
-  const LEAF = ['196,142,66', '214,112,62', '150,160,84', '98,134,78', '226,186,104'];
-  for (let i = 0; i < W * H / 1500; i++) { // fallen leaves
-    g.save(); g.translate(rnd(W), rnd(H)); g.rotate(rnd(TAU)); g.fillStyle = `rgba(${LEAF[Math.floor(rnd(5))]},${rnd(.16, .42)})`;
+  const LEAF = lush ? ['196,142,66', '214,112,62', '150,160,84', '98,134,78', '226,186,104'] : ['120,102,78', '98,90,74', '138,120,92', '84,80,68', '110,96,76'];
+  for (let i = 0; i < W * H / (lush ? 1500 : 2200); i++) {
+    g.save(); g.translate(rnd(W), rnd(H)); g.rotate(rnd(TAU)); g.fillStyle = `rgba(${LEAF[Math.floor(rnd(5))]},${rnd(.16, lush ? .42 : .3)})`;
     g.beginPath(); g.ellipse(0, 0, rnd(2.2, 4.2), rnd(1, 1.9), 0, 0, TAU); g.fill(); g.restore();
   }
-  for (let i = 0; i < W * H / 900; i++) { g.fillStyle = `rgba(160,200,130,${rnd(.08, .2)})`; g.beginPath(); g.arc(rnd(W), rnd(H), rnd(.6, 1.4), 0, TAU); g.fill(); }
+  if (lush) for (let i = 0; i < W * H / 700; i++) { g.fillStyle = `rgba(170,210,130,${rnd(.1, .26)})`; g.beginPath(); g.arc(rnd(W), rnd(H), rnd(.6, 1.5), 0, TAU); g.fill(); }
+}
+function paintBg() {
+  ground(bg, true); ground(bgDry, false); rev.width = W; rev.height = H;
+  props.width = W * DPR; props.height = H * DPR; const g = props.getContext('2d'); g.scale(DPR, DPR);
   for (const d of S.drys) {
     const q = g.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r); q.addColorStop(0, 'rgba(216,180,112,.42)'); q.addColorStop(.7, 'rgba(206,168,104,.26)'); q.addColorStop(1, 'rgba(206,168,104,0)');
     g.fillStyle = q; g.beginPath(); g.arc(d.x, d.y, d.r, 0, TAU); g.fill();
@@ -453,7 +460,15 @@ function drawTree(t, i) {
   if (t.name) { ctx.font = '600 10px Manrope,system-ui,sans-serif'; ctx.textAlign = t.x > W - 70 ? 'right' : 'left'; const tx = t.x + (t.x > W - 70 ? -14 : 14), ty = t.y - 9; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(22,36,28,.75)'; ctx.strokeText(t.name, tx, ty); ctx.fillStyle = L > .5 ? 'rgba(245,238,214,.98)' : 'rgba(190,198,176,.9)'; ctx.fillText(t.name, tx, ty); }
 }
 function draw() {
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(bg, 0, 0, W, H);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(bgDry, 0, 0, W, H);
+  { // the forest floor comes alive around revived trees and along live paths
+    const r = rev.getContext('2d'); r.globalCompositeOperation = 'source-over'; r.clearRect(0, 0, W, H);
+    if (S.bloom > .01) { r.fillStyle = `rgba(255,255,255,${S.bloom})`; r.fillRect(0, 0, W, H); }
+    for (const t of S.trees) { if (!(t.life > .01)) continue; const q = t.cr * (S.water ? 3.4 : 4.4) * (.35 + .65 * t.life); r.globalAlpha = Math.min(1, t.life * 1.6); r.drawImage(BLOB, t.x - q, t.y - q, q * 2, q * 2); }
+    for (const d of S.decor) { const q = 38 * d.s; if (q < 1) continue; r.globalAlpha = Math.min(1, d.s); r.drawImage(BLOB, d.x - q, d.y - q, q * 2, q * 2); }
+    r.globalAlpha = 1; r.globalCompositeOperation = 'source-in'; r.drawImage(bg, 0, 0, W, H);
+    ctx.drawImage(rev, 0, 0, W, H); ctx.drawImage(props, 0, 0, W, H);
+  }
   if (S.wint > .01) { ctx.fillStyle = `rgba(196,220,236,${.16 * S.wint})`; ctx.fillRect(0, 0, W, H); }
   ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   for (let i = 0; i < 5; i++) { // light through the canopy
