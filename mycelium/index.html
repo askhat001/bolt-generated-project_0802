@@ -1,0 +1,487 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Мицелий</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Manrope:wght@400;600;700&display=swap">
+<style>
+/* Layout: one full-bleed canvas (the forest floor); a thin HUD on top, a control bar at the bottom, the menu fades over it. */
+:root{
+  color-scheme:dark;
+  --humus:#0b1210;      /* ground */
+  --moss:#14211c;       /* raised surface */
+  --lichen:#e6edc6;     /* mycelium, primary text */
+  --bark:#93a08a;       /* secondary text */
+  --amber:#f2b55a;      /* trees, primary action */
+  --sap:#7fe3cf;        /* flow, focus */
+  --coral:#ef8a6c;      /* food, cutting */
+  --line:rgba(230,237,198,.16);
+  --display:"Cormorant Garamond","Georgia","Times New Roman",serif;
+  --ui:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--humus);color:var(--lichen);font-family:var(--ui);overflow:hidden;position:relative;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.hud{position:fixed;left:0;right:0;display:flex;align-items:center;gap:8px;pointer-events:none;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.hud>*{pointer-events:auto}
+.top{top:0;padding-block:calc(env(safe-area-inset-top,0px) + 12px) 12px;justify-content:space-between;
+  background:linear-gradient(var(--humus),transparent)}
+.bottom{bottom:0;padding-block:14px calc(env(safe-area-inset-bottom,0px) + 14px);justify-content:center;flex-wrap:wrap;
+  background:linear-gradient(transparent,var(--humus))}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand .name{font-family:var(--display);font-style:italic;font-size:26px;line-height:1}
+.brand .sub{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--bark);white-space:nowrap}
+.stats{display:flex;gap:10px;white-space:nowrap;align-items:center;font-size:13px;font-variant-numeric:tabular-nums;color:var(--bark)}
+.stats b{color:var(--lichen);font-weight:600}
+.energy{width:48px;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.energy i{display:block;height:100%;width:50%;background:var(--amber)}
+button{font:600 14px/1 var(--ui);color:var(--lichen);background:var(--moss);border:1px solid var(--line);
+  border-radius:999px;padding:12px 14px;cursor:pointer}
+button:focus-visible{outline:2px solid var(--sap);outline-offset:2px}
+.seg{display:flex;background:var(--moss);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{border:0;background:transparent;padding:11px 15px;color:var(--bark)}
+.seg button[aria-pressed="true"]{background:var(--lichen);color:var(--humus)}
+#m-cut[aria-pressed="true"]{background:var(--coral)}
+.quiet{background:transparent}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 96px);transform:translateX(-50%);
+  max-width:calc(100% - 32px);padding:9px 16px;border-radius:999px;background:var(--moss);border:1px solid var(--line);
+  font-size:13px;opacity:0;transition:opacity .4s;pointer-events:none;text-align:center}
+#toast.on{opacity:1}
+#win{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 56px);transform:translateX(-50%);white-space:nowrap;
+  max-width:calc(100% - 32px);padding:8px 14px;border-radius:999px;background:var(--moss);border:1px solid var(--line);
+  font-size:12px;color:var(--bark);font-variant-numeric:tabular-nums;pointer-events:none}
+#win b{color:var(--lichen);font-weight:600}
+#b-sound[aria-pressed="false"]{color:var(--bark);text-decoration:line-through}
+#w-ideal[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+.primary{background:var(--amber);color:var(--humus);border-color:transparent}
+#menu{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center;overflow:auto;
+  background:linear-gradient(transparent 0%,rgba(11,18,16,.82) 42%,var(--humus) 100%);
+  padding-block:calc(env(safe-area-inset-top,0px) + 24px) calc(env(safe-area-inset-bottom,0px) + 24px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#menu .in{width:100%;max-width:520px;display:flex;flex-direction:column;gap:16px}
+#menu h1{font:italic 500 clamp(44px,13vw,68px)/.95 var(--display);margin:0}
+#menu .pitch{font-size:16px;line-height:1.5;margin:0;max-width:34em}
+#menu ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.45;color:var(--bark)}
+#menu ul b{color:var(--lichen);font-weight:600}
+.levels{display:flex;flex-direction:column;gap:8px}
+.levels button{display:flex;justify-content:space-between;align-items:baseline;gap:12px;text-align:left;border-radius:14px;padding:14px 16px}
+.levels button span{font-weight:400;font-size:12px;color:var(--bark);text-align:right}
+.levels button.primary span{color:var(--humus)}
+#played{font-size:12px;color:var(--bark);font-variant-numeric:tabular-nums;min-height:1em}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+
+<canvas id="c" aria-label="Лесная почва с растущей грибницей"></canvas>
+
+<div class="hud top">
+  <div class="brand"><span class="name">Мицелий</span><span class="sub" id="lvl">Поляна</span></div>
+  <div class="stats">
+    <span>Деревья <b id="st-trees">1/7</b></span>
+    <span class="energy" title="Энергия"><i id="st-en"></i></span>
+    <b id="st-time">0:00</b>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<div class="hud bottom" id="bar">
+  <div class="seg" role="group" aria-label="Режим касания">
+    <button id="m-grow" aria-pressed="true">Расти</button>
+    <button id="m-cut" aria-pressed="false">Резать</button>
+  </div>
+  <button id="w-ideal" class="quiet" aria-pressed="false" hidden>Идеал</button>
+  <button id="b-menu" class="quiet">Уровни</button>
+  <button id="b-sound" class="quiet" aria-pressed="true" aria-label="Звук">Звук</button>
+</div>
+
+<div id="win" hidden>Эффективность <b id="w-eff">0%</b> · сеть <b id="w-len">0</b> · энергии ушло <b id="w-spent">0</b></div>
+
+<div id="menu">
+  <div class="in">
+    <h1>Мицелий</h1>
+    <p class="pitch">Вырастите грибницу, которая соединит лес. Она растёт сама и ищет питание, как слизевик Physarum, а вы подсказываете ей путь.</p>
+    <ul>
+      <li><b>Расти:</b> держите палец там, куда должна тянуться сеть.</li>
+      <li><b>Резать:</b> проведите поперёк ветви, чтобы отсечь её.</li>
+      <li>Связанные деревья дают энергию. Тупики со временем отмирают сами.</li>
+    </ul>
+    <div class="levels">
+      <button class="primary" data-level="glade">Поляна <span>без цели, просто растить</span></button>
+      <button data-level="grove">Роща <span>6 деревьев, камни, сушь, зима</span></button>
+      <button data-level="tokyo">Токио <span>19 городов Канто</span></button>
+    </div>
+    <div id="played"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const cv = $('c'), ctx = cv.getContext('2d');
+const SEG = 6, CELL = 12, SPEED = 30, COST = 0.03, MAXN = 7000;
+const TAU = Math.PI * 2;
+const rnd = (a = 1, b) => b === undefined ? Math.random() * a : a + Math.random() * (b - a);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const NAMES = { glade: 'Поляна', grove: 'Роща', tokyo: 'Токио' };
+
+let W = 0, H = 0, DPR = 1, R = { x: 0, y: 0, w: 0, h: 0 };
+let S = null, levelId = 'glade', mode = 'grow', muted = false, menuOpen = true;
+let bg = document.createElement('canvas');
+const ptr = { down: false, x: 0, y: 0, px: 0, py: 0 };
+
+/* ---------- levels ---------- */
+const KANTO = [ // approximate coordinates (lat, lon); the first is home
+  ['Токио', 35.68, 139.77], ['Иокогама', 35.44, 139.64], ['Тиба', 35.61, 140.12], ['Сайтама', 35.91, 139.62],
+  ['Хатиодзи', 35.66, 139.32], ['Кавасаки', 35.53, 139.70], ['Фунабаси', 35.69, 139.98], ['Касива', 35.87, 139.97],
+  ['Цукуба', 36.08, 140.11], ['Мито', 36.37, 140.47], ['Уцуномия', 36.56, 139.88], ['Маэбаси', 36.39, 139.06],
+  ['Кумагая', 36.15, 139.39], ['Кавагоэ', 35.92, 139.49], ['Одавара', 35.26, 139.15], ['Йокосука', 35.28, 139.67],
+  ['Нарита', 35.78, 140.32], ['Ацуги', 35.44, 139.36], ['Ояма', 36.31, 139.80]];
+const KANTO_WATER = [[35.50, 139.90, 0.12], [35.36, 139.79, 0.085], [35.12, 139.42, 0.17], [35.20, 140.05, 0.2]];
+
+function buildLevel(id) {
+  const m = Math.min(R.w, R.h);
+  const P = (x, y) => ({ x: R.x + x * R.w, y: R.y + y * R.h });
+  const L = { trees: [], foods: [], rocks: [], drys: [], sandbox: false, seasons: true, water: false, incomeMul: .35, start: 120, bonus: 30 };
+  if (id === 'tokyo') {
+    L.seasons = false; L.water = true; L.incomeMul = .45; L.start = 140; L.bonus = 25;
+    const lon0 = 138.92, lon1 = 140.6, lat0 = 35.12, lat1 = 36.66, k = Math.cos(35.9 * Math.PI / 180);
+    const gw = (lon1 - lon0) * k, gh = lat1 - lat0, sc = Math.min(R.w / gw, R.h / gh);
+    const ox = R.x + (R.w - gw * sc) / 2, oy = R.y + (R.h - gh * sc) / 2;
+    const G = (lat, lon) => ({ x: ox + (lon - lon0) * k * sc, y: oy + (lat1 - lat) * sc });
+    for (const [name, lat, lon] of KANTO) L.trees.push({ ...G(lat, lon), r: 7, name });
+    for (const [lat, lon, r] of KANTO_WATER) L.rocks.push({ ...G(lat, lon), r: r * sc });
+  } else if (id === 'grove') {
+    [[.5, .93], [.15, .72], [.85, .70], [.5, .52], [.2, .3], [.8, .28], [.5, .07]].forEach(([x, y]) => L.trees.push({ ...P(x, y), r: 11 }));
+    [[.33, .62, .09], [.68, .6, .08], [.5, .33, .1], [.1, .5, .06], [.9, .47, .06]].forEach(([x, y, r]) => L.rocks.push({ ...P(x, y), r: r * m }));
+    [[.5, .74, .13], [.3, .16, .12], [.76, .14, .1]].forEach(([x, y, r]) => L.drys.push({ ...P(x, y), r: r * m }));
+  } else {
+    L.sandbox = true; L.incomeMul = 3; L.start = 150; L.bonus = 25;
+    L.trees.push({ ...P(.5, .55), r: 12 });
+    for (let i = 0; i < 3; i++) L.rocks.push({ ...P(rnd(.12, .88), rnd(.1, .9)), r: rnd(.05, .09) * m });
+    for (let i = 0; i < 2; i++) L.drys.push({ ...P(rnd(.15, .85), rnd(.1, .9)), r: rnd(.1, .15) * m });
+    for (let i = 0; i < 6; i++) { const p = freeSpot(L, 70); if (p) L.trees.push({ ...p, r: 11 }); }
+  }
+  // keep trees clear of rocks
+  for (const r of L.rocks) for (const t of L.trees) {
+    const d = Math.hypot(r.x - t.x, r.y - t.y); if (d < r.r + 20) r.r = Math.max(6, d - 20);
+  }
+  const nFood = id === 'tokyo' ? 0 : 14;
+  for (let i = 0; i < nFood; i++) { const p = freeSpot(L, 26); if (p) L.foods.push({ ...p, alive: true, ph: rnd(TAU) }); }
+  return L;
+}
+function freeSpot(L, minTree) {
+  for (let k = 0; k < 60; k++) {
+    const x = R.x + rnd(.06, .94) * R.w, y = R.y + rnd(.05, .95) * R.h;
+    if (L.rocks.some(r => Math.hypot(r.x - x, r.y - y) < r.r + 12)) continue;
+    if (L.trees.some(t => Math.hypot(t.x - x, t.y - y) < minTree)) continue;
+    return { x, y };
+  }
+  return null;
+}
+
+/* ---------- graph ---------- */
+const key = (x, y) => ((Math.floor(x / CELL) + 8) << 12) | (Math.floor(y / CELL) + 8);
+function addNode(x, y, tree = -1) {
+  const id = S.nodes.length;
+  S.nodes.push({ x, y, adj: [], tree, tips: 0 });
+  const k = key(x, y), c = S.grid.get(k); c ? c.push(id) : S.grid.set(k, [id]);
+  return id;
+}
+function addEdge(a, b) {
+  const A = S.nodes[a], B = S.nodes[b], i = S.edges.length;
+  S.edges.push({ a, b, alive: true, born: S.t, flow: 0, ft: 0, dying: 0, len: Math.hypot(A.x - B.x, A.y - B.y) });
+  A.adj.push(i); B.adj.push(i);
+}
+function killEdge(i) {
+  const e = S.edges[i]; if (!e.alive) return;
+  e.alive = false; S.dead++;
+  for (const n of [S.nodes[e.a], S.nodes[e.b]]) { const k = n.adj.indexOf(i); if (k >= 0) n.adj.splice(k, 1); }
+}
+function findNode(x, y, r, ex1, ex2) {
+  const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL); let best = -1, bd = r * r;
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+    const c = S.grid.get(((cx + i + 8) << 12) | (cy + j + 8)); if (!c) continue;
+    for (const id of c) {
+      if (id === ex1 || id === ex2) continue;
+      const n = S.nodes[id]; if (!n.adj.length && n.tree < 0) continue;
+      const d = (n.x - x) ** 2 + (n.y - y) ** 2; if (d < bd) { bd = d; best = id; }
+    }
+  }
+  return best;
+}
+function compact() {
+  const map = new Int32Array(S.nodes.length).fill(-1), nodes = [], edges = [];
+  S.nodes.forEach((n, i) => { if (n.tree >= 0 || n.adj.length || n.tips > 0) { map[i] = nodes.length; n.adj = []; nodes.push(n); } });
+  for (const e of S.edges) if (e.alive) { e.a = map[e.a]; e.b = map[e.b]; nodes[e.a].adj.push(edges.length); nodes[e.b].adj.push(edges.length); edges.push(e); }
+  S.nodes = nodes; S.edges = edges; S.dead = 0; S.grid = new Map();
+  nodes.forEach((n, i) => { const k = key(n.x, n.y), c = S.grid.get(k); c ? c.push(i) : S.grid.set(k, [i]); });
+  for (const t of S.tips) { t.n = map[t.n]; t.prev = -1; }
+  for (const t of S.trees) t.n = map[t.n];
+  S.pulses = []; S.paths = []; analyse();
+}
+
+/* ---------- simulation ---------- */
+function init(id) {
+  levelId = id;
+  const L = buildLevel(id);
+  S = { ...L, nodes: [], edges: [], tips: [], grid: new Map(), pulses: [], rings: [], paths: [], dead: 0,
+    energy: L.start, spent: 0, t: 0, play: 0, maxTips: 18, dirty: true, won: false, ideal: false, wint: 0, winter: false,
+    accA: 0, accS: 0, accF: 0, accP: 0, accFood: 0, sapling: 0, aliveLen: 0, mst: [], mstLen: 0 };
+  S.trees.forEach((t, i) => { t.n = addNode(t.x, t.y, i); t.connected = i === 0; });
+  for (let i = 0; i < 5; i++) spawnTip(S.trees[0].n, rnd(TAU));
+  mst(); paintBg();
+  $('lvl').textContent = NAMES[id]; $('toast').classList.remove('on'); $('win').hidden = true;
+  $('w-ideal').hidden = true; $('w-ideal').setAttribute('aria-pressed', 'false');
+}
+function mst() {
+  const T = S.trees, inT = [0], rest = T.map((_, i) => i).slice(1); S.mst = []; S.mstLen = 0;
+  while (rest.length) {
+    let b = null;
+    for (const a of inT) for (const c of rest) { const d = Math.hypot(T[a].x - T[c].x, T[a].y - T[c].y); if (!b || d < b.d) b = { a, c, d }; }
+    S.mst.push([b.a, b.c]); S.mstLen += b.d; inT.push(b.c); rest.splice(rest.indexOf(b.c), 1);
+  }
+}
+function spawnTip(n, a) { S.tips.push({ n, prev: -1, a, prog: rnd(SEG), segs: 0, sm: 1 }); S.nodes[n].tips++; }
+const blocked = (x, y) => S.rocks.some(r => (r.x - x) ** 2 + (r.y - y) ** 2 < (r.r + 2) ** 2);
+
+function advance(t) {
+  const n = S.nodes[t.n];
+  let vx = Math.cos(t.a), vy = Math.sin(t.a), guided = false;
+  for (const f of S.foods) { if (!f.alive) continue; const dx = f.x - n.x, dy = f.y - n.y, d = Math.hypot(dx, dy); if (d < 150 && d > 1) { const w = 1.2 / (1 + d / 30); vx += dx / d * w; vy += dy / d * w; } }
+  for (const tr of S.trees) { if (tr.connected) continue; const dx = tr.x - n.x, dy = tr.y - n.y, d = Math.hypot(dx, dy); if (d < 130 && d > 1) { const w = 1.6 / (1 + d / 40); vx += dx / d * w; vy += dy / d * w; } }
+  if (ptr.down && mode === 'grow' && !menuOpen) { const dx = ptr.x - n.x, dy = ptr.y - n.y, d = Math.hypot(dx, dy); if (d < 300 && d > 4) { vx += dx / d * 3.2; vy += dy / d * 3.2; guided = true; } }
+  let da = Math.atan2(vy, vx) - t.a; da = Math.atan2(Math.sin(da), Math.cos(da));
+  t.a += clamp(da, -.38, .38) + (Math.random() - .5) * (guided ? .25 : .55);
+  let x = n.x + Math.cos(t.a) * SEG, y = n.y + Math.sin(t.a) * SEG;
+  if (x < R.x - 6 || x > R.x + R.w + 6 || y < R.y - 6 || y > R.y + R.h + 6) {
+    t.a = Math.atan2(R.y + R.h / 2 - n.y, R.x + R.w / 2 - n.x) + rnd(-.6, .6);
+    x = n.x + Math.cos(t.a) * SEG; y = n.y + Math.sin(t.a) * SEG;
+  }
+  if (blocked(x, y)) {
+    let ok = false;
+    for (const o of [.6, -.6, 1.2, -1.2, 1.9, -1.9]) {
+      const xx = n.x + Math.cos(t.a + o) * SEG, yy = n.y + Math.sin(t.a + o) * SEG;
+      if (!blocked(xx, yy)) { t.a += o; x = xx; y = yy; ok = true; break; }
+    }
+    if (!ok) return false;
+  }
+  if (S.drys.some(d => (d.x - x) ** 2 + (d.y - y) ** 2 < d.r * d.r)) { t.sm = .45; if (!guided && Math.random() < .05) return false; } else t.sm = 1;
+  if (t.segs >= 4) for (const tr of S.trees) {
+    if (tr.n === t.n) continue;
+    if ((tr.x - x) ** 2 + (tr.y - y) ** 2 < (tr.r + 3) ** 2) { link(t.n, tr.n); return false; }
+  }
+  if (t.segs >= 3) { const near = findNode(x, y, 3.5, t.n, t.prev); if (near >= 0) { link(t.n, near); return false; } }
+  const id = addNode(x, y); addEdge(t.n, id);
+  n.tips--; t.prev = t.n; t.n = id; S.nodes[id].tips++; t.segs++;
+  S.energy -= SEG * COST; S.spent += SEG * COST;
+  for (const f of S.foods) if (f.alive && (f.x - x) ** 2 + (f.y - y) ** 2 < 100) {
+    f.alive = false; S.energy = Math.min(400, S.energy + 40); ring(f.x, f.y, '239,138,108'); tone(880, .5, .05);
+    for (let i = 0; i < 3; i++) spawnTip(id, t.a + rnd(-1.6, 1.6));
+  }
+  if (S.tips.length < S.maxTips && S.nodes.length - S.dead < MAXN && Math.random() < (guided ? .03 : .06))
+    spawnTip(id, t.a + (Math.random() < .5 ? -1 : 1) * rnd(.6, 1.2));
+  if (!guided && t.segs > 18 && Math.random() < .01 + .03 * Math.max(0, (S.tips.length - S.maxTips) / S.maxTips)) return false;
+  return true;
+}
+function link(a, b) { if (!S.nodes[a].adj.some(i => { const e = S.edges[i]; return e.a === b || e.b === b; })) addEdge(a, b); S.dirty = true; }
+
+function analyse() {
+  S.dirty = false;
+  const N = S.nodes.length, par = new Int32Array(N).fill(-2), pe = new Int32Array(N).fill(-1), home = S.trees[0].n, q = [home];
+  par[home] = -1;
+  for (let h = 0; h < q.length; h++) {
+    const u = q[h];
+    for (const ei of S.nodes[u].adj) { const e = S.edges[ei]; if (e.dying) continue; const v = e.a === u ? e.b : e.a; if (par[v] === -2) { par[v] = u; pe[v] = ei; q.push(v); } }
+  }
+  let len = 0;
+  for (const e of S.edges) { if (!e.alive) continue; e.ft = 0; if (e.dying) continue; if (par[e.a] === -2) e.dying = 1; else len += e.len; }
+  S.aliveLen = len;
+  S.tips = S.tips.filter(t => { if (par[t.n] !== -2) return true; S.nodes[t.n].tips--; return false; });
+  S.paths = []; let cnt = 0;
+  S.trees.forEach((tr, i) => {
+    const was = tr.connected; tr.connected = par[tr.n] !== -2; if (tr.connected) cnt++;
+    if (tr.connected && !was) { ring(tr.x, tr.y, '242,181,90'); tone([261.6, 293.7, 329.6, 392, 440, 523.3, 587.3, 659.3][cnt % 8] , 1.6, .12); S.energy = Math.min(400, S.energy + S.bonus); }
+    if (i && tr.connected) { const p = []; let v = tr.n; while (par[v] >= 0) { S.edges[pe[v]].ft = 1; p.push(v); v = par[v]; } p.push(home); S.paths.push(p); }
+  });
+  S.cnt = cnt;
+  // dead ends retract, as Physarum does
+  const age = S.winter ? 5 : 16, pr = S.winter ? .9 : .5;
+  for (const n of S.nodes) {
+    if (n.tree >= 0 || n.tips > 0 || n.adj.length !== 1) continue;
+    const e = S.edges[n.adj[0]];
+    if (!e.dying && !e.ft && S.t - e.born > age && Math.random() < pr) e.dying = .35;
+  }
+  const lp = S.winter ? .004 : S.sandbox ? .0012 : 0;
+  if (lp) for (const e of S.edges) if (e.alive && !e.dying && !e.ft && S.t - e.born > 20 && Math.random() < lp) e.dying = .35;
+  if (S.dead > 1500 && S.dead > S.edges.length * .4) compact();
+}
+
+function cut(x0, y0, x1, y1) {
+  const dx = x1 - x0, dy = y1 - y0, l2 = dx * dx + dy * dy; let hit = false;
+  for (const e of S.edges) {
+    if (!e.alive || e.dying) continue;
+    const A = S.nodes[e.a], B = S.nodes[e.b], mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+    const u = l2 ? clamp(((mx - x0) * dx + (my - y0) * dy) / l2, 0, 1) : 0;
+    if ((mx - x0 - u * dx) ** 2 + (my - y0 - u * dy) ** 2 < 25) { e.dying = .35; hit = true; }
+  }
+  if (hit) { S.dirty = true; tone(160, .25, .05, 'triangle'); }
+}
+
+function step(dt) {
+  S.t += dt; if (!menuOpen) S.play += dt;
+  if (S.seasons) { const w = (S.t % 75) > 57; if (w && !S.winter) toast('Зима: рост медленнее, тупики отмирают быстрее'); S.winter = w; }
+  S.wint += ((S.winter ? 1 : 0) - S.wint) * Math.min(1, dt * 1.5);
+  S.energy = Math.min(400, S.energy + dt * (2.5 + 1.5 * ((S.cnt || 1) - 1)) * S.incomeMul * (S.winter ? .5 : 1));
+  S.maxTips = clamp(S.energy / 8, 3, 30);
+  if (S.energy > .5) for (let i = S.tips.length - 1; i >= 0; i--) {
+    const t = S.tips[i]; t.prog += SPEED * (S.winter ? .5 : 1) * t.sm * dt;
+    if (t.prog >= SEG) { t.prog -= SEG; if (!advance(t)) { S.nodes[t.n].tips--; S.tips.splice(S.tips.indexOf(t), 1); } }
+  }
+  for (let i = 0; i < S.edges.length; i++) { const e = S.edges[i]; if (!e.alive) continue; if (e.dying) { e.dying -= dt * 1.2; if (e.dying <= 0) { e.dying = 0; killEdge(i); } } e.flow += (e.ft - e.flow) * Math.min(1, dt * 2.5); }
+  if ((S.accA += dt) > .35 || S.dirty) { S.accA = 0; analyse(); }
+  if ((S.accS += dt) > .6) { S.accS = 0; if (S.tips.length < Math.min(4, S.maxTips)) sprout(); }
+  if (ptr.down && mode === 'grow' && !menuOpen && (S.accF += dt) > .35) {
+    S.accF = 0;
+    if (!S.tips.some(t => (S.nodes[t.n].x - ptr.x) ** 2 + (S.nodes[t.n].y - ptr.y) ** 2 < 8100)) {
+      let b = -1, bd = 1e12;
+      S.nodes.forEach((n, i) => { if (!n.adj.length && n.tree !== 0) return; if (n.tree > 0 && !S.trees[n.tree].connected) return; const d = (n.x - ptr.x) ** 2 + (n.y - ptr.y) ** 2; if (d < bd) { bd = d; b = i; } });
+      if (b >= 0 && bd > 64) spawnTip(b, Math.atan2(ptr.y - S.nodes[b].y, ptr.x - S.nodes[b].x));
+    }
+  }
+  if ((S.accP += dt) > .5 && S.paths.length) { S.accP = 0; const p = S.paths[Math.floor(rnd(S.paths.length))]; if (p.length > 2) S.pulses.push({ p, i: 0, rev: Math.random() < .5 }); }
+  for (let i = S.pulses.length - 1; i >= 0; i--) { const u = S.pulses[i]; u.i += dt * 16; if (u.i >= u.p.length - 1) S.pulses.splice(i, 1); }
+  for (let i = S.rings.length - 1; i >= 0; i--) { S.rings[i].a += dt; if (S.rings[i].a > 1.4) S.rings.splice(i, 1); }
+  if (S.sandbox) {
+    if ((S.accFood += dt) > 6) { S.accFood = 0; if (S.foods.filter(f => f.alive).length < 10) { const p = freeSpot(S, 26); if (p) S.foods.push({ ...p, alive: true, ph: rnd(TAU) }); } }
+    if (S.cnt === S.trees.length && S.trees.length < 14 && (S.sapling += dt) > 2.5) {
+      S.sapling = 0; const p = freeSpot(S, 70);
+      if (p) { const i = S.trees.length; S.trees.push({ ...p, r: 11, n: addNode(p.x, p.y, i), connected: false }); ring(p.x, p.y, '242,181,90'); toast('Вырос новый росток'); mst(); }
+    }
+  } else if (!S.won && S.cnt === S.trees.length) { S.won = true; $('win').hidden = false; $('w-ideal').hidden = false;
+    toast(levelId === 'tokyo' ? 'Все города связаны. «Идеал» показывает кратчайшее дерево, не настоящие железные дороги' : 'Все деревья связаны. Обрежьте лишнее и сравните с идеалом'); tone(523.3, 2.2, .1); tone(659.3, 2.4, .08); tone(784, 2.6, .06); }
+}
+function sprout() {
+  let best = -1, bd = 1e12;
+  for (let k = 0; k < 14; k++) {
+    const i = Math.floor(rnd(S.nodes.length)), n = S.nodes[i];
+    if (!(n.tree === 0 || n.adj.some(ei => !S.edges[ei].dying))) continue;
+    if (n.tree > 0 && !S.trees[n.tree].connected) continue;
+    let d = 1e9; for (const tr of S.trees) if (!tr.connected) d = Math.min(d, (tr.x - n.x) ** 2 + (tr.y - n.y) ** 2);
+    d *= rnd(.5, 1.5); if (d < bd) { bd = d; best = i; }
+  }
+  if (best >= 0) spawnTip(best, rnd(TAU));
+}
+const ring = (x, y, c) => S.rings.push({ x, y, c, a: 0 });
+
+/* ---------- drawing ---------- */
+function paintBg() {
+  bg.width = W * DPR; bg.height = H * DPR; const g = bg.getContext('2d'); g.scale(DPR, DPR);
+  const gr = g.createRadialGradient(W / 2, H * .55, 0, W / 2, H * .55, Math.max(W, H) * .75);
+  gr.addColorStop(0, '#13211b'); gr.addColorStop(1, '#0b1210'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < W * H / 500; i++) { g.fillStyle = `rgba(${Math.random() < .5 ? '230,237,198' : '150,120,80'},${rnd(.03, .09)})`; g.fillRect(rnd(W), rnd(H), rnd(.6, 1.8), rnd(.6, 1.8)); }
+  for (const d of S.drys) {
+    const q = g.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r); q.addColorStop(0, 'rgba(196,146,66,.26)'); q.addColorStop(.7, 'rgba(196,146,66,.16)'); q.addColorStop(1, 'rgba(196,146,66,0)');
+    g.fillStyle = q; g.beginPath(); g.arc(d.x, d.y, d.r, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(230,190,120,.16)'; for (let i = 0; i < d.r * 1.5; i++) { const a = rnd(TAU), r = Math.sqrt(Math.random()) * d.r * .9; g.fillRect(d.x + Math.cos(a) * r, d.y + Math.sin(a) * r, 1.4, 1.4); }
+  }
+  for (const r of S.rocks) {
+    g.beginPath(); const k = 18, ph = rnd(TAU);
+    for (let i = 0; i <= k; i++) { const a = i / k * TAU, rr = r.r * (S.water ? 1 : .94 + .06 * Math.sin(a * 3 + ph)); g[i ? 'lineTo' : 'moveTo'](r.x + Math.cos(a) * rr, r.y + Math.sin(a) * rr); }
+    g.fillStyle = S.water ? '#0f2a36' : '#1c282b'; g.fill(); if (!S.water) { g.strokeStyle = '#34474b'; g.lineWidth = 1.5; g.stroke(); }
+  }
+}
+function draw() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(bg, 0, 0, W, H);
+  if (S.wint > .01) { ctx.fillStyle = `rgba(140,190,230,${.08 * S.wint})`; ctx.fillRect(0, 0, W, H); }
+  ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const p0 = new Path2D(), p1 = new Path2D(), p2 = new Path2D(), pd = new Path2D(), N = S.nodes;
+  for (const e of S.edges) { if (!e.alive) continue; const a = N[e.a], b = N[e.b], p = e.dying ? pd : e.flow > .7 ? p2 : e.flow > .2 ? p1 : p0; p.moveTo(a.x, a.y); p.lineTo(b.x, b.y); }
+  for (const t of S.tips) { const n = N[t.n]; p0.moveTo(n.x, n.y); p0.lineTo(n.x + Math.cos(t.a) * t.prog, n.y + Math.sin(t.a) * t.prog); }
+  const st = (p, c, w) => { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.stroke(p); };
+  st(pd, 'rgba(239,138,108,.35)', 1);
+  st(p0, 'rgba(180,215,130,.07)', 5); st(p0, 'rgba(226,236,190,.55)', 1.1);
+  st(p1, 'rgba(127,227,207,.08)', 7); st(p1, 'rgba(232,244,210,.8)', 1.8);
+  st(p2, 'rgba(127,227,207,.10)', 10); st(p2, 'rgba(240,250,228,.95)', 2.8);
+  ctx.fillStyle = 'rgba(245,250,225,.9)';
+  for (const t of S.tips) { const n = N[t.n]; ctx.beginPath(); ctx.arc(n.x + Math.cos(t.a) * t.prog, n.y + Math.sin(t.a) * t.prog, 1.6, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = 'rgba(127,227,207,.9)';
+  for (const u of S.pulses) { const k = u.rev ? u.p.length - 1 - u.i : u.i, i = Math.floor(k), f = k - i, a = N[u.p[i]], b = N[u.p[Math.min(i + 1, u.p.length - 1)]]; if (!a || !b) continue; ctx.beginPath(); ctx.arc(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f, 2.6, 0, TAU); ctx.fill(); }
+  for (const r of S.rings) { ctx.strokeStyle = `rgba(${r.c},${.6 * (1 - r.a / 1.4)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(r.x, r.y, 8 + r.a * 46, 0, TAU); ctx.stroke(); }
+  for (const f of S.foods) if (f.alive) { ctx.fillStyle = `rgba(239,138,108,${.6 + .3 * Math.sin(S.t * 2 + f.ph)})`; ctx.beginPath(); ctx.arc(f.x, f.y, 2.8, 0, TAU); ctx.fill(); }
+  ctx.globalCompositeOperation = 'source-over';
+  if (S.ideal) { ctx.setLineDash([5, 6]); ctx.strokeStyle = 'rgba(242,181,90,.85)'; ctx.lineWidth = 1.5; ctx.beginPath(); for (const [a, b] of S.mst) { ctx.moveTo(S.trees[a].x, S.trees[a].y); ctx.lineTo(S.trees[b].x, S.trees[b].y); } ctx.stroke(); ctx.setLineDash([]); }
+  S.trees.forEach((t, i) => {
+    const on = t.connected, pulse = on ? 1 + .08 * Math.sin(S.t * 2 + i) : 1;
+    const g = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, t.r * 3.2 * pulse); g.addColorStop(0, `rgba(242,181,90,${on ? .5 : .16})`); g.addColorStop(1, 'rgba(242,181,90,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(t.x, t.y, t.r * 3.2 * pulse, 0, TAU); ctx.fill();
+    ctx.fillStyle = on ? '#f2b55a' : '#5d4d33'; ctx.beginPath(); ctx.arc(t.x, t.y, t.r * .62, 0, TAU); ctx.fill();
+    ctx.strokeStyle = on ? 'rgba(242,181,90,.9)' : 'rgba(242,181,90,.4)'; ctx.lineWidth = i ? 1.2 : 2.2; ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, TAU); ctx.stroke();
+    if (t.name) { ctx.font = '600 10px Manrope,system-ui,sans-serif'; ctx.fillStyle = on ? 'rgba(230,237,198,.95)' : 'rgba(147,160,138,.9)'; ctx.textAlign = t.x > W - 70 ? 'right' : 'left'; ctx.fillText(t.name, t.x + (t.x > W - 70 ? -11 : 11), t.y - 8); }
+  });
+  if (ptr.down && !menuOpen) { ctx.strokeStyle = mode === 'cut' ? 'rgba(239,138,108,.7)' : 'rgba(230,237,198,.45)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ptr.x, ptr.y, mode === 'cut' ? 10 : 22 + 3 * Math.sin(S.t * 5), 0, TAU); ctx.stroke(); }
+}
+
+/* ---------- sound ---------- */
+let ac = null;
+function tone(f, dur = 1.2, vol = .1, type = 'sine') {
+  if (muted || !ac) return;
+  try { const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + .05); } catch (e) {}
+}
+function wake() { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } else if (ac.state === 'suspended') ac.resume(); }
+
+/* ---------- interface ---------- */
+const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+let toastT = 0;
+function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 3200); }
+function readPlayed() { try { return JSON.parse(localStorage.getItem('myc.play') || '{}'); } catch (e) { return {}; } }
+function savePlayed() {
+  if (!S || S.play < 1) return;
+  try { const p = readPlayed(); p[levelId] = (p[levelId] || 0) + S.play; S.play = 0; localStorage.setItem('myc.play', JSON.stringify(p)); } catch (e) {}
+}
+function showMenu(on) {
+  if (on) savePlayed();
+  menuOpen = on; $('menu').hidden = !on;
+  if (on) { const p = readPlayed(), parts = Object.keys(NAMES).filter(k => p[k] > 1).map(k => `${NAMES[k]} ${fmt(p[k])}`); $('played').textContent = parts.length ? 'Вы играли: ' + parts.join(' · ') : ''; }
+}
+function setMode(m) { mode = m; $('m-grow').setAttribute('aria-pressed', m === 'grow'); $('m-cut').setAttribute('aria-pressed', m === 'cut'); }
+function hud() {
+  $('st-trees').textContent = `${S.cnt || 1}/${S.trees.length}`;
+  $('st-en').style.width = clamp(S.energy / 400 * 100, 0, 100) + '%';
+  $('st-time').textContent = fmt(S.play);
+  if (S.won) { $('w-eff').textContent = Math.round(clamp(S.mstLen / Math.max(1, S.aliveLen), 0, 1) * 100) + '%'; $('w-len').textContent = Math.round(S.aliveLen); $('w-spent').textContent = Math.round(S.spent); }
+}
+function resize(force) {
+  const w = window.innerWidth, h = window.innerHeight, big = Math.abs(w - W) > 40 || Math.abs(h - H) > 160;
+  DPR = Math.min(2, window.devicePixelRatio || 1); W = w; H = h; cv.width = W * DPR; cv.height = H * DPR;
+  R = { x: 22, y: 96, w: W - 44, h: H - 96 - 96 };
+  if (force || big || !S) init(levelId); else paintBg();
+}
+cv.addEventListener('pointerdown', e => { wake(); ptr.down = true; ptr.x = ptr.px = e.clientX; ptr.y = ptr.py = e.clientY; S.accF = 1; try { cv.setPointerCapture(e.pointerId); } catch (_) {} if (mode === 'cut') cut(ptr.x, ptr.y, ptr.x, ptr.y); });
+cv.addEventListener('pointermove', e => { if (!ptr.down) return; ptr.px = ptr.x; ptr.py = ptr.y; ptr.x = e.clientX; ptr.y = e.clientY; if (mode === 'cut') cut(ptr.px, ptr.py, ptr.x, ptr.y); });
+for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) cv.addEventListener(ev, () => { ptr.down = false; });
+$('m-grow').onclick = () => setMode('grow');
+$('m-cut').onclick = () => setMode('cut');
+$('b-menu').onclick = () => showMenu(true);
+$('b-sound').onclick = e => { muted = !muted; e.currentTarget.setAttribute('aria-pressed', !muted); };
+$('w-ideal').onclick = e => { S.ideal = !S.ideal; e.currentTarget.setAttribute('aria-pressed', S.ideal); };
+document.querySelectorAll('[data-level]').forEach(b => b.onclick = () => { wake(); init(b.dataset.level); setMode('grow'); showMenu(false); });
+window.addEventListener('resize', () => resize(false));
+document.addEventListener('visibilitychange', () => { if (document.hidden) savePlayed(); });
+window.addEventListener('pagehide', savePlayed);
+
+let last = 0, hudT = 0;
+function frame(ts) {
+  const dt = Math.min(.05, (ts - last) / 1000 || 0); last = ts;
+  if (!document.hidden) { step(dt); draw(); if ((hudT += dt) > .25) { hudT = 0; hud(); } }
+  requestAnimationFrame(frame);
+}
+resize(true); showMenu(true); hud();
+window.__myc = { get S() { return S; }, step, init, cut, showMenu, setMode, ptr };
+requestAnimationFrame(frame);
+})();
+</script>
