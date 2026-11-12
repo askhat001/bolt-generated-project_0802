@@ -1,0 +1,795 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Мицелий</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Manrope:wght@400;600;700&display=swap">
+<style>
+/* Layout: one full-bleed canvas (the forest floor); a thin HUD on top, a control bar at the bottom, the menu fades over it. */
+:root{
+  color-scheme:dark;
+  --humus:#16241c;      /* ground */
+  --moss:#22362a;       /* raised surface */
+  --lichen:#f5eed6;     /* mycelium, primary text */
+  --bark:#aab59c;       /* secondary text */
+  --amber:#f4b860;      /* trees, primary action */
+  --sap:#a6e3c4;        /* flow, focus */
+  --coral:#ee8a6c;      /* food, cutting */
+  --line:rgba(245,238,214,.18);
+  --display:"Cormorant Garamond","Georgia","Times New Roman",serif;
+  --ui:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--humus);color:var(--lichen);font-family:var(--ui);overflow:hidden;position:relative;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.hud{position:fixed;left:0;right:0;display:flex;align-items:center;gap:8px;pointer-events:none;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.hud>*{pointer-events:auto}
+.top{top:0;padding-block:calc(env(safe-area-inset-top,0px) + 12px) 12px;justify-content:space-between;
+  background:linear-gradient(var(--humus),transparent)}
+.bottom{bottom:0;padding-block:14px calc(env(safe-area-inset-bottom,0px) + 14px);justify-content:center;flex-wrap:wrap;
+  background:linear-gradient(transparent,var(--humus))}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand .name{font-family:var(--display);font-style:italic;font-size:26px;line-height:1}
+.brand .sub{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--bark);white-space:nowrap}
+.stats{display:flex;gap:10px;white-space:nowrap;align-items:center;font-size:13px;font-variant-numeric:tabular-nums;color:var(--bark)}
+.stats b{color:var(--lichen);font-weight:600}
+.energy{width:48px;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.energy i{display:block;height:100%;width:50%;background:var(--amber)}
+button{font:600 14px/1 var(--ui);color:var(--lichen);background:var(--moss);border:1px solid var(--line);
+  border-radius:999px;padding:12px 14px;cursor:pointer}
+button:focus-visible{outline:2px solid var(--sap);outline-offset:2px}
+.seg{display:flex;background:var(--moss);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{border:0;background:transparent;padding:11px 15px;color:var(--bark)}
+.seg button[aria-pressed="true"]{background:var(--lichen);color:var(--humus)}
+#m-cut[aria-pressed="true"]{background:var(--coral)}
+.quiet{background:transparent}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 96px);transform:translateX(-50%);
+  max-width:calc(100% - 32px);padding:9px 16px;border-radius:999px;background:var(--moss);border:1px solid var(--line);
+  font-size:13px;opacity:0;transition:opacity .4s;pointer-events:none;text-align:center}
+#toast.on{opacity:1}
+#win{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 56px);transform:translateX(-50%);white-space:nowrap;
+  max-width:calc(100% - 32px);padding:8px 14px;border-radius:999px;background:var(--moss);border:1px solid var(--line);
+  font-size:12px;color:var(--bark);font-variant-numeric:tabular-nums;pointer-events:none}
+#win b{color:var(--lichen);font-weight:600}
+#b-sound[aria-pressed="false"]{color:var(--bark);text-decoration:line-through}
+#w-ideal[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+.sheet{position:fixed;left:0;right:0;bottom:0;background:var(--moss);border-top:1px solid var(--line);
+  padding-block:18px calc(env(safe-area-inset-bottom,0px) + 18px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sheet .in,.over .in{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.sheet h2,.over h2{font:italic 500 28px/1.1 var(--display);margin:0}
+.sheet p,.over p{margin:0;font-size:14px;line-height:1.5;color:var(--bark)}
+.score{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.score b{font-size:40px;line-height:1;font-variant-numeric:tabular-nums}
+.score span{font-size:24px;color:var(--amber);letter-spacing:.08em}
+.score small{font-size:12px;color:var(--bark)}
+#r-share{font:400 13px/1.3 var(--ui);color:var(--lichen);background:var(--humus);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;min-width:0;
+  -webkit-user-select:text;user-select:text}
+#r-share:focus-visible{outline:2px solid var(--sap);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row.head{justify-content:space-between}
+.over{position:fixed;inset:0;overflow:auto;background:var(--humus);
+  padding-block:calc(env(safe-area-inset-top,0px) + 20px) calc(env(safe-area-inset-bottom,0px) + 24px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.over h3{font:italic 500 22px/1.1 var(--display);margin:10px 0 0}
+.over h4{font:600 11px/1.2 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--bark);margin:0 0 6px}
+#f-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.card{display:flex;flex-direction:column;gap:6px;min-width:0}
+.card img{width:100%;border-radius:12px;border:1px solid var(--line);display:block}
+.card div{display:flex;flex-direction:column;gap:2px;font-size:12px;min-width:0}
+.card b{font-weight:600;overflow-wrap:anywhere}
+.card span{color:var(--amber);font-variant-numeric:tabular-nums}
+#h-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:12px 10px}
+.sp{display:flex;flex-direction:column;gap:3px;min-width:0;font-size:12px;line-height:1.35}
+.sp canvas{width:56px;height:56px;margin:-6px 0 0 -8px}
+.sp b{font-weight:600;overflow-wrap:anywhere}
+.sp span{color:var(--bark)}
+.sp.no b{color:var(--bark);font-weight:400}
+.boards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px}
+.boards ol{margin:0;padding:0;list-style:none;counter-reset:r;display:flex;flex-direction:column;gap:6px}
+.boards li{counter-increment:r;display:flex;gap:8px;align-items:baseline;font-size:14px;min-width:0}
+.boards li::before{content:counter(r);width:1.4em;color:var(--bark);font-variant-numeric:tabular-nums;flex:none}
+.boards li span{flex:1;min-width:0;overflow-wrap:anywhere}
+.boards li b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.primary{background:var(--amber);color:var(--humus);border-color:transparent}
+#menu{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center;overflow:auto;
+  background:linear-gradient(transparent 0%,rgba(22,36,28,.8) 42%,var(--humus) 100%);
+  padding-block:calc(env(safe-area-inset-top,0px) + 24px) calc(env(safe-area-inset-bottom,0px) + 24px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#menu .in{width:100%;max-width:520px;display:flex;flex-direction:column;gap:16px}
+#menu h1{font:italic 500 clamp(44px,13vw,68px)/.95 var(--display);margin:0}
+#menu .pitch{font-size:16px;line-height:1.5;margin:0;max-width:34em}
+#menu ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.45;color:var(--bark)}
+#menu ul b{color:var(--lichen);font-weight:600}
+.levels{display:flex;flex-direction:column;gap:8px}
+.levels button{display:flex;justify-content:space-between;align-items:baseline;gap:12px;text-align:left;border-radius:14px;padding:14px 16px}
+.levels button span{font-weight:400;font-size:12px;color:var(--bark);text-align:right}
+.levels button.primary span{color:var(--humus)}
+#played{font-size:12px;color:var(--bark);font-variant-numeric:tabular-nums;min-height:1em}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+
+<canvas id="c" aria-label="Лесная почва с растущей грибницей"></canvas>
+
+<div class="hud top">
+  <div class="brand"><span class="name">Мицелий</span><span class="sub" id="lvl">Поляна</span></div>
+  <div class="stats">
+    <span>Ожило <b id="st-trees">1/7</b></span>
+    <span class="energy" title="Энергия"><i id="st-en"></i></span>
+    <b id="st-time">0:00</b>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<div class="hud bottom" id="bar">
+  <div class="seg" role="group" aria-label="Режим касания">
+    <button id="m-grow" aria-pressed="true">Расти</button>
+    <button id="m-cut" aria-pressed="false">Резать</button>
+  </div>
+  <button id="w-ideal" class="quiet" aria-pressed="false" hidden>Идеал</button>
+  <button id="b-done" class="primary" hidden>Готово</button>
+  <button id="b-menu" class="quiet">Уровни</button>
+  <button id="b-sound" class="quiet" aria-pressed="true" aria-label="Звук">Звук</button>
+</div>
+
+<div id="win" hidden>Эффективность <b id="w-eff">0%</b> · сеть <b id="w-len">0</b> · энергии ушло <b id="w-spent">0</b></div>
+
+<div id="result" class="sheet" hidden>
+  <div class="in">
+    <h2 id="r-title">Поляна</h2>
+    <div class="score"><b id="r-eff">0%</b><span id="r-stars">☆☆☆</span><small>эффективность сети</small></div>
+    <p id="r-note"></p>
+    <input id="r-share" readonly aria-label="Результат для отправки">
+    <div class="row"><button id="r-copy" class="primary">Скопировать результат</button><button id="r-forest">Мой лес</button><button id="r-menu">Уровни</button></div>
+  </div>
+</div>
+
+<div id="forest" class="over" hidden>
+  <div class="in">
+    <div class="row head"><h2>Мой лес</h2><button id="f-back">Уровни</button></div>
+    <p id="f-sum"></p>
+    <p id="f-empty">Здесь появятся ваши поляны. Соедините все деревья на уровне, обрежьте лишнее и нажмите «Готово».</p>
+    <div id="f-grid"></div>
+    <h3>Гербарий</h3>
+    <p id="h-sum"></p>
+    <div id="h-grid"></div>
+    <h3>Рейтинг</h3>
+    <p id="f-note"></p>
+    <div class="boards" id="f-boards">
+      <div><h4 id="f-dayh">Поляна дня</h4><ol id="f-day"></ol></div>
+      <div><h4>Самые большие леса</h4><ol id="f-big"></ol></div>
+    </div>
+  </div>
+</div>
+
+<div id="menu">
+  <div class="in">
+    <h1>Мицелий</h1>
+    <p class="pitch">Вырастите грибницу, которая соединит лес. Сухие деревья оживают, когда сеть дотягивается до них. Она растёт сама, а вы подсказываете ей путь.</p>
+    <ul>
+      <li><b>Расти:</b> держите палец там, куда должна тянуться сеть. Сама она до дальних деревьев не дойдёт.</li>
+      <li><b>Резать:</b> проведите поперёк ветви, чтобы отсечь её.</li>
+      <li>Вдоль живых путей вырастают грибы. Какой вид вырастет, зависит от места: собирайте гербарий.</li>
+    </ul>
+    <div class="levels">
+      <button class="primary" data-level="glade">Поляна <span>без цели, просто растить</span></button>
+      <button data-level="daily">Поляна дня <span>одна на всех сегодня, с рейтингом</span></button>
+      <button data-level="grove">Роща <span>6 деревьев, камни, сушь, зима</span></button>
+      <button data-level="tokyo">Токио <span>19 городов Канто</span></button>
+    </div>
+    <button id="b-forest" class="quiet">Мой лес, гербарий и рейтинг</button>
+    <div id="played"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const cv = $('c'), ctx = cv.getContext('2d');
+const SEG = 6, CELL = 12, SPEED = 30, COST = 0.03, MAXN = 7000;
+const TAU = Math.PI * 2;
+let RNG = Math.random;
+const rnd = (a = 1, b) => b === undefined ? RNG() * a : a + RNG() * (b - a);
+const seeded = str => { let h = 1779033703; for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 3432918353), h = h << 13 | h >>> 19; let a = h >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
+const today = () => new Date().toISOString().slice(0, 10);
+const dm = d => d.slice(8, 10) + '.' + d.slice(5, 7);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const NAMES = { glade: 'Поляна', daily: 'Поляна дня', grove: 'Роща', tokyo: 'Токио' };
+
+let W = 0, H = 0, DPR = 1, R = { x: 0, y: 0, w: 0, h: 0 };
+let S = null, levelId = 'glade', mode = 'grow', muted = false, menuOpen = true;
+const mk = () => document.createElement('canvas');
+const bg = mk(), bgDry = mk(), rev = mk(), props = mk(), BLOB = mk();
+{ BLOB.width = BLOB.height = 128; const g = BLOB.getContext('2d'), q = g.createRadialGradient(64, 64, 0, 64, 64, 64); q.addColorStop(0, 'rgba(255,255,255,1)'); q.addColorStop(.55, 'rgba(255,255,255,.8)'); q.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = q; g.fillRect(0, 0, 128, 128); }
+const ptr = { down: false, x: 0, y: 0, px: 0, py: 0 };
+
+/* ---------- levels ---------- */
+const KANTO = [ // approximate coordinates (lat, lon); the first is home
+  ['Токио', 35.68, 139.77], ['Иокогама', 35.44, 139.64], ['Тиба', 35.61, 140.12], ['Сайтама', 35.91, 139.62],
+  ['Хатиодзи', 35.66, 139.32], ['Кавасаки', 35.53, 139.70], ['Фунабаси', 35.69, 139.98], ['Касива', 35.87, 139.97],
+  ['Цукуба', 36.08, 140.11], ['Мито', 36.37, 140.47], ['Уцуномия', 36.56, 139.88], ['Маэбаси', 36.39, 139.06],
+  ['Кумагая', 36.15, 139.39], ['Кавагоэ', 35.92, 139.49], ['Одавара', 35.26, 139.15], ['Йокосука', 35.28, 139.67],
+  ['Нарита', 35.78, 140.32], ['Ацуги', 35.44, 139.36], ['Ояма', 36.31, 139.80]];
+const KANTO_WATER = [[35.50, 139.90, 0.12], [35.36, 139.79, 0.085], [35.12, 139.42, 0.17], [35.20, 140.05, 0.2]];
+
+function buildDaily() { // the same glade for everyone on a given UTC day, laid out on a fixed 360x600 field and scaled to the screen
+  const real = R, L = { trees: [], foods: [], rocks: [], drys: [], sandbox: false, seasons: true, water: false, incomeMul: .35, start: 120, bonus: 30, pull: 55, day: today() };
+  RNG = seeded('mycelium-' + L.day); R = { x: 0, y: 0, w: 360, h: 600 };
+  try {
+    L.trees.push({ x: rnd(120, 240), y: rnd(520, 570), r: 11 });
+    for (let i = 0, n = 4 + Math.floor(rnd(3)); i < n; i++) L.rocks.push({ x: rnd(30, 330), y: rnd(60, 480), r: rnd(22, 40) });
+    for (let i = 0, n = 2 + Math.floor(rnd(2)); i < n; i++) L.drys.push({ x: rnd(50, 310), y: rnd(60, 500), r: rnd(40, 58) });
+    for (const r of L.rocks) { const t = L.trees[0], d = Math.hypot(r.x - t.x, r.y - t.y); if (d < r.r + 30) r.r = Math.max(8, d - 30); }
+    for (let i = 0, n = 6 + Math.floor(rnd(2)); i < n; i++) { const p = freeSpot(L, 92); if (p) L.trees.push({ ...p, r: 11 }); }
+    for (let i = 0; i < 12; i++) { const p = freeSpot(L, 26); if (p) L.foods.push({ ...p, alive: true, ph: rnd(TAU) }); }
+  } finally { RNG = Math.random; R = real; }
+  const k = Math.min(R.w / 360, R.h / 600), ox = R.x + (R.w - 360 * k) / 2, oy = R.y + (R.h - 600 * k) / 2;
+  for (const a of [L.trees, L.foods, L.rocks, L.drys]) for (const o of a) { o.x = ox + o.x * k; o.y = oy + o.y * k; }
+  for (const a of [L.rocks, L.drys]) for (const o of a) o.r *= k;
+  return L;
+}
+function buildLevel(id) {
+  if (id === 'daily') return buildDaily();
+  const m = Math.min(R.w, R.h);
+  const P = (x, y) => ({ x: R.x + x * R.w, y: R.y + y * R.h });
+  const L = { trees: [], foods: [], rocks: [], drys: [], sandbox: false, seasons: true, water: false, incomeMul: .35, start: 120, bonus: 30, pull: 55 };
+  if (id === 'tokyo') {
+    L.seasons = false; L.water = true; L.incomeMul = .45; L.start = 140; L.bonus = 25;
+    const lon0 = 138.92, lon1 = 140.6, lat0 = 35.12, lat1 = 36.66, k = Math.cos(35.9 * Math.PI / 180);
+    const gw = (lon1 - lon0) * k, gh = lat1 - lat0, sc = Math.min(R.w / gw, R.h / gh);
+    const ox = R.x + (R.w - gw * sc) / 2, oy = R.y + (R.h - gh * sc) / 2;
+    const G = (lat, lon) => ({ x: ox + (lon - lon0) * k * sc, y: oy + (lat1 - lat) * sc });
+    for (const [name, lat, lon] of KANTO) L.trees.push({ ...G(lat, lon), r: 7, name });
+    for (const [lat, lon, r] of KANTO_WATER) L.rocks.push({ ...G(lat, lon), r: r * sc });
+  } else if (id === 'grove') {
+    [[.5, .93], [.15, .72], [.85, .70], [.5, .52], [.2, .3], [.8, .28], [.5, .1]].forEach(([x, y]) => L.trees.push({ ...P(x, y), r: 11 }));
+    [[.33, .62, .09], [.68, .6, .08], [.5, .33, .1], [.1, .5, .06], [.9, .47, .06]].forEach(([x, y, r]) => L.rocks.push({ ...P(x, y), r: r * m }));
+    [[.5, .74, .13], [.3, .16, .12], [.76, .14, .1]].forEach(([x, y, r]) => L.drys.push({ ...P(x, y), r: r * m }));
+  } else {
+    L.sandbox = true; L.pull = 130; L.incomeMul = 3; L.start = 150; L.bonus = 25;
+    L.trees.push({ ...P(.5, .55), r: 12 });
+    for (let i = 0; i < 3; i++) L.rocks.push({ ...P(rnd(.12, .88), rnd(.1, .9)), r: rnd(.05, .09) * m });
+    for (let i = 0; i < 2; i++) L.drys.push({ ...P(rnd(.15, .85), rnd(.1, .9)), r: rnd(.1, .15) * m });
+    for (let i = 0; i < 6; i++) { const p = freeSpot(L, 70); if (p) L.trees.push({ ...p, r: 11 }); }
+  }
+  // keep trees clear of rocks
+  for (const r of L.rocks) for (const t of L.trees) {
+    const d = Math.hypot(r.x - t.x, r.y - t.y); if (d < r.r + 20) r.r = Math.max(6, d - 20);
+  }
+  const nFood = id === 'tokyo' ? 0 : 14;
+  for (let i = 0; i < nFood; i++) { const p = freeSpot(L, 26); if (p) L.foods.push({ ...p, alive: true, ph: rnd(TAU) }); }
+  return L;
+}
+function freeSpot(L, minTree) {
+  for (let k = 0; k < 60; k++) {
+    const x = R.x + rnd(.06, .94) * R.w, y = R.y + rnd(.05, .95) * R.h;
+    if (L.rocks.some(r => Math.hypot(r.x - x, r.y - y) < r.r + 12)) continue;
+    if (L.trees.some(t => Math.hypot(t.x - x, t.y - y) < minTree)) continue;
+    return { x, y };
+  }
+  return null;
+}
+
+/* ---------- graph ---------- */
+const key = (x, y) => ((Math.floor(x / CELL) + 8) << 12) | (Math.floor(y / CELL) + 8);
+function addNode(x, y, tree = -1) {
+  const id = S.nodes.length;
+  S.nodes.push({ x, y, adj: [], tree, tips: 0 });
+  const k = key(x, y), c = S.grid.get(k); c ? c.push(id) : S.grid.set(k, [id]);
+  return id;
+}
+function addEdge(a, b) {
+  const A = S.nodes[a], B = S.nodes[b], i = S.edges.length;
+  S.edges.push({ a, b, alive: true, born: S.t, flow: 0, ft: 0, dying: 0, len: Math.hypot(A.x - B.x, A.y - B.y) });
+  A.adj.push(i); B.adj.push(i);
+}
+function killEdge(i) {
+  const e = S.edges[i]; if (!e.alive) return;
+  e.alive = false; S.dead++;
+  for (const n of [S.nodes[e.a], S.nodes[e.b]]) { const k = n.adj.indexOf(i); if (k >= 0) n.adj.splice(k, 1); }
+}
+function findNode(x, y, r, ex1, ex2) {
+  const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL); let best = -1, bd = r * r;
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+    const c = S.grid.get(((cx + i + 8) << 12) | (cy + j + 8)); if (!c) continue;
+    for (const id of c) {
+      if (id === ex1 || id === ex2) continue;
+      const n = S.nodes[id]; if (!n.adj.length && n.tree < 0) continue;
+      const d = (n.x - x) ** 2 + (n.y - y) ** 2; if (d < bd) { bd = d; best = id; }
+    }
+  }
+  return best;
+}
+function compact() {
+  const map = new Int32Array(S.nodes.length).fill(-1), nodes = [], edges = [];
+  S.nodes.forEach((n, i) => { if (n.tree >= 0 || n.adj.length || n.tips > 0) { map[i] = nodes.length; n.adj = []; nodes.push(n); } });
+  for (const e of S.edges) if (e.alive) { e.a = map[e.a]; e.b = map[e.b]; nodes[e.a].adj.push(edges.length); nodes[e.b].adj.push(edges.length); edges.push(e); }
+  S.nodes = nodes; S.edges = edges; S.dead = 0; S.grid = new Map();
+  nodes.forEach((n, i) => { const k = key(n.x, n.y), c = S.grid.get(k); c ? c.push(i) : S.grid.set(k, [i]); });
+  for (const t of S.tips) { t.n = map[t.n]; t.prev = -1; }
+  for (const t of S.trees) t.n = map[t.n];
+  S.pulses = []; S.paths = []; analyse();
+}
+
+/* ---------- simulation ---------- */
+function init(id) {
+  levelId = id;
+  const L = buildLevel(id);
+  S = { ...L, nodes: [], edges: [], tips: [], grid: new Map(), pulses: [], rings: [], decor: [], accM: 0, bloom: 0, paths: [], dead: 0,
+    energy: L.start, spent: 0, t: 0, play: 0, maxTips: 18, dirty: true, won: false, ideal: false, wint: 0, winter: false,
+    done: false, accA: 0, accS: 0, accF: 0, accP: 0, accFood: 0, sapling: 0, aliveLen: 0, mst: [], mstLen: 0 };
+  S.trees.forEach((t, i) => { t.n = addNode(t.x, t.y, i); t.connected = i === 0; });
+  for (let i = 0; i < 5; i++) spawnTip(S.trees[0].n, rnd(TAU));
+  mst(); paintBg();
+  $('lvl').textContent = NAMES[id]; $('toast').classList.remove('on'); $('win').hidden = true;
+  $('w-ideal').hidden = true; $('w-ideal').setAttribute('aria-pressed', 'false'); $('b-done').hidden = true; $('result').hidden = true;
+  if (id === 'daily') $('lvl').textContent = 'День ' + dm(L.day);
+}
+function mst() {
+  const T = S.trees, inT = [0], rest = T.map((_, i) => i).slice(1); S.mst = []; S.mstLen = 0;
+  while (rest.length) {
+    let b = null;
+    for (const a of inT) for (const c of rest) { const d = Math.hypot(T[a].x - T[c].x, T[a].y - T[c].y); if (!b || d < b.d) b = { a, c, d }; }
+    S.mst.push([b.a, b.c]); S.mstLen += b.d; inT.push(b.c); rest.splice(rest.indexOf(b.c), 1);
+  }
+}
+function spawnTip(n, a) { S.tips.push({ n, prev: -1, a, prog: rnd(SEG), segs: 0, sm: 1 }); S.nodes[n].tips++; }
+const blocked = (x, y) => S.rocks.some(r => (r.x - x) ** 2 + (r.y - y) ** 2 < (r.r + 2) ** 2);
+
+function advance(t) {
+  const n = S.nodes[t.n];
+  let vx = Math.cos(t.a), vy = Math.sin(t.a), guided = false;
+  for (const f of S.foods) { if (!f.alive) continue; const dx = f.x - n.x, dy = f.y - n.y, d = Math.hypot(dx, dy); if (d < 150 && d > 1) { const w = 1.2 / (1 + d / 30); vx += dx / d * w; vy += dy / d * w; } }
+  for (const tr of S.trees) { if (tr.connected) continue; const dx = tr.x - n.x, dy = tr.y - n.y, d = Math.hypot(dx, dy); if (d < S.pull && d > 1) { const w = 1.6 / (1 + d / 40); vx += dx / d * w; vy += dy / d * w; } }
+  if (ptr.down && mode === 'grow' && !menuOpen) { const dx = ptr.x - n.x, dy = ptr.y - n.y, d = Math.hypot(dx, dy); if (d < 300 && d > 4) { vx += dx / d * 3.2; vy += dy / d * 3.2; guided = true; } }
+  let da = Math.atan2(vy, vx) - t.a; da = Math.atan2(Math.sin(da), Math.cos(da));
+  t.a += clamp(da, -.38, .38) + (Math.random() - .5) * (guided ? .25 : .55);
+  let x = n.x + Math.cos(t.a) * SEG, y = n.y + Math.sin(t.a) * SEG;
+  if (x < R.x - 6 || x > R.x + R.w + 6 || y < R.y - 6 || y > R.y + R.h + 6) {
+    t.a = Math.atan2(R.y + R.h / 2 - n.y, R.x + R.w / 2 - n.x) + rnd(-.6, .6);
+    x = n.x + Math.cos(t.a) * SEG; y = n.y + Math.sin(t.a) * SEG;
+  }
+  if (blocked(x, y)) {
+    let ok = false;
+    for (const o of [.6, -.6, 1.2, -1.2, 1.9, -1.9]) {
+      const xx = n.x + Math.cos(t.a + o) * SEG, yy = n.y + Math.sin(t.a + o) * SEG;
+      if (!blocked(xx, yy)) { t.a += o; x = xx; y = yy; ok = true; break; }
+    }
+    if (!ok) return false;
+  }
+  if (S.drys.some(d => (d.x - x) ** 2 + (d.y - y) ** 2 < d.r * d.r)) { t.sm = .45; if (!guided && Math.random() < .05) return false; } else t.sm = 1;
+  if (t.segs >= 4) for (const tr of S.trees) {
+    if (tr.n === t.n) continue;
+    if ((tr.x - x) ** 2 + (tr.y - y) ** 2 < (tr.r + 3) ** 2) { link(t.n, tr.n); return false; }
+  }
+  if (t.segs >= 3) { const near = findNode(x, y, 3.5, t.n, t.prev); if (near >= 0) { link(t.n, near); return false; } }
+  const id = addNode(x, y); addEdge(t.n, id);
+  n.tips--; t.prev = t.n; t.n = id; S.nodes[id].tips++; t.segs++;
+  S.energy -= SEG * COST; S.spent += SEG * COST;
+  for (const f of S.foods) if (f.alive && (f.x - x) ** 2 + (f.y - y) ** 2 < 100) {
+    f.alive = false; S.energy = Math.min(400, S.energy + 40); ring(f.x, f.y, '239,138,108'); tone(880, .5, .05);
+    for (let i = 0; i < 3; i++) spawnTip(id, t.a + rnd(-1.6, 1.6));
+  }
+  if (S.tips.length < S.maxTips && S.nodes.length - S.dead < MAXN && Math.random() < (guided ? .03 : .06))
+    spawnTip(id, t.a + (Math.random() < .5 ? -1 : 1) * rnd(.6, 1.2));
+  if (!guided && t.segs > 18 && Math.random() < .01 + .03 * Math.max(0, (S.tips.length - S.maxTips) / S.maxTips)) return false;
+  return true;
+}
+function link(a, b) { if (!S.nodes[a].adj.some(i => { const e = S.edges[i]; return e.a === b || e.b === b; })) addEdge(a, b); S.dirty = true; }
+
+function analyse() {
+  S.dirty = false;
+  const N = S.nodes.length, par = new Int32Array(N).fill(-2), pe = new Int32Array(N).fill(-1), home = S.trees[0].n, q = [home];
+  par[home] = -1;
+  for (let h = 0; h < q.length; h++) {
+    const u = q[h];
+    for (const ei of S.nodes[u].adj) { const e = S.edges[ei]; if (e.dying) continue; const v = e.a === u ? e.b : e.a; if (par[v] === -2) { par[v] = u; pe[v] = ei; q.push(v); } }
+  }
+  let len = 0;
+  for (const e of S.edges) { if (!e.alive) continue; e.ft = 0; if (e.dying) continue; if (par[e.a] === -2) e.dying = 1; else len += e.len; }
+  S.aliveLen = len;
+  S.tips = S.tips.filter(t => { if (par[t.n] !== -2) return true; S.nodes[t.n].tips--; return false; });
+  S.paths = []; let cnt = 0;
+  S.trees.forEach((tr, i) => {
+    const was = tr.connected; tr.connected = par[tr.n] !== -2; if (tr.connected) cnt++;
+    if (tr.connected && !was) { ring(tr.x, tr.y, '255,226,150'); tone([261.6, 293.7, 329.6, 392, 440, 523.3, 587.3, 659.3][cnt % 8] , 1.6, .12); S.energy = Math.min(400, S.energy + S.bonus); }
+    if (i && tr.connected) { const p = []; let v = tr.n; while (par[v] >= 0) { S.edges[pe[v]].ft = 1; p.push(v); v = par[v]; } p.push(home); S.paths.push(p); }
+  });
+  S.cnt = cnt;
+  { const pc = new Uint8Array(N); for (const p of S.paths) for (const v of p) if (pc[v] < 255) pc[v]++; S.pc = pc; }
+  // dead ends retract, as Physarum does
+  const age = S.won ? 2 : S.winter ? 5 : 16, pr = S.winter ? .9 : .5;
+  for (const n of S.nodes) {
+    if (n.tree >= 0 || n.tips > 0 || n.adj.length !== 1) continue;
+    const e = S.edges[n.adj[0]];
+    if (!e.dying && !e.ft && S.t - e.born > age && Math.random() < pr) e.dying = .35;
+  }
+  const lp = S.winter ? .004 : S.sandbox ? .0012 : 0;
+  if (lp) for (const e of S.edges) if (e.alive && !e.dying && !e.ft && S.t - e.born > 20 && Math.random() < lp) e.dying = .35;
+  if (S.dead > 1500 && S.dead > S.edges.length * .4) compact();
+}
+
+function cut(x0, y0, x1, y1) {
+  const dx = x1 - x0, dy = y1 - y0, l2 = dx * dx + dy * dy; let hit = false;
+  for (const e of S.edges) {
+    if (!e.alive || e.dying) continue;
+    const A = S.nodes[e.a], B = S.nodes[e.b], mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+    const u = l2 ? clamp(((mx - x0) * dx + (my - y0) * dy) / l2, 0, 1) : 0;
+    if ((mx - x0 - u * dx) ** 2 + (my - y0 - u * dy) ** 2 < 25) { e.dying = .35; hit = true; }
+  }
+  if (hit) { S.dirty = true; tone(160, .25, .05, 'triangle');
+    if (Math.random() < .3 && !blocked(x1, y1) && !S.decor.some(d => (d.x - x1) ** 2 + (d.y - y1) ** 2 < 900)) { S.decor.push({ x: x1, y: y1, s: 0, sp: 'ink', r: 4.6, dying: false, free: S.t + 25 }); discover('ink', x1, y1); } }
+}
+
+function step(dt) {
+  S.t += dt; if (!menuOpen) S.play += dt;
+  if (S.seasons) { const w = (S.t % 75) > 57; if (w && !S.winter) toast('Зима: рост медленнее, тупики отмирают быстрее'); S.winter = w; }
+  S.wint += ((S.winter ? 1 : 0) - S.wint) * Math.min(1, dt * 1.5);
+  S.bloom += ((S.won ? 1 : 0) - S.bloom) * Math.min(1, dt * .5);
+  for (let i = 0; i < S.trees.length; i++) { const t = S.trees[i]; if (!t.blobs) dress(t, i); t.life += ((t.connected ? 1 : 0) - t.life) * Math.min(1, dt * 1.3); }
+  if ((S.accM += dt) > .25) {
+    S.accM = 0;
+    for (const d of S.decor) if (!d.dying && (d.free ? S.t > d.free : findNode(d.x, d.y, 10) < 0)) d.dying = true;
+    if (S.paths.length && S.decor.length < 70) {
+      const p = S.paths[Math.floor(rnd(S.paths.length))], ni = p[Math.floor(rnd(p.length))], n = S.nodes[ni];
+      if (n && !S.trees.some(t => (t.x - n.x) ** 2 + (t.y - n.y) ** 2 < (t.cr + 6) ** 2) && !S.decor.some(d => (d.x - n.x) ** 2 + (d.y - n.y) ** 2 < 324)) {
+        const sp = pickSpecies(n, ni); S.decor.push({ x: n.x + rnd(-6, 6), y: n.y + rnd(-6, 6), s: 0, sp, r: rnd(4, 5.4), dying: false }); discover(sp, n.x, n.y);
+      }
+    }
+  }
+  for (let i = S.decor.length - 1; i >= 0; i--) { const d = S.decor[i]; d.s = d.dying ? d.s - dt * 2 : Math.min(1, d.s + dt * 3); if (d.dying && d.s <= 0) S.decor.splice(i, 1); }
+  S.energy = Math.min(400, S.energy + dt * (2.5 + 1.5 * ((S.cnt || 1) - 1)) * S.incomeMul * (S.winter ? .5 : 1));
+  S.maxTips = clamp(S.energy / 8, 3, 30);
+  const frozen = S.won && !(ptr.down && mode === 'grow' && !menuOpen); // after the win the network only grows where the player asks
+  if (frozen && S.tips.length) { for (const t of S.tips) S.nodes[t.n].tips--; S.tips = []; S.dirty = true; } // loose ends retract once growth stops
+  if (S.energy > .5 && !frozen) for (let i = S.tips.length - 1; i >= 0; i--) {
+    const t = S.tips[i]; t.prog += SPEED * (S.winter ? .5 : 1) * t.sm * dt;
+    if (t.prog >= SEG) { t.prog -= SEG; if (!advance(t)) { S.nodes[t.n].tips--; S.tips.splice(S.tips.indexOf(t), 1); } }
+  }
+  for (let i = 0; i < S.edges.length; i++) { const e = S.edges[i]; if (!e.alive) continue; if (e.dying) { e.dying -= dt * 1.2; if (e.dying <= 0) { e.dying = 0; killEdge(i); } } e.flow += (e.ft - e.flow) * Math.min(1, dt * 2.5); }
+  if ((S.accA += dt) > .35 || S.dirty) { S.accA = 0; analyse(); }
+  if ((S.accS += dt) > .6) { S.accS = 0; if (!S.won && S.tips.length < Math.min(4, S.maxTips)) sprout(); }
+  if (ptr.down && mode === 'grow' && !menuOpen && (S.accF += dt) > .35) {
+    S.accF = 0;
+    if (!S.tips.some(t => (S.nodes[t.n].x - ptr.x) ** 2 + (S.nodes[t.n].y - ptr.y) ** 2 < 8100)) {
+      let b = -1, bd = 1e12;
+      S.nodes.forEach((n, i) => { if (!n.adj.length && n.tree !== 0) return; if (n.tree > 0 && !S.trees[n.tree].connected) return; const d = (n.x - ptr.x) ** 2 + (n.y - ptr.y) ** 2; if (d < bd) { bd = d; b = i; } });
+      if (b >= 0 && bd > 64) spawnTip(b, Math.atan2(ptr.y - S.nodes[b].y, ptr.x - S.nodes[b].x));
+    }
+  }
+  if ((S.accP += dt) > .5 && S.paths.length) { S.accP = 0; const p = S.paths[Math.floor(rnd(S.paths.length))]; if (p.length > 2) S.pulses.push({ p, i: 0, rev: Math.random() < .5 }); }
+  for (let i = S.pulses.length - 1; i >= 0; i--) { const u = S.pulses[i]; u.i += dt * 16; if (u.i >= u.p.length - 1) S.pulses.splice(i, 1); }
+  for (let i = S.rings.length - 1; i >= 0; i--) { S.rings[i].a += dt; if (S.rings[i].a > 1.4) S.rings.splice(i, 1); }
+  if (S.sandbox) {
+    if ((S.accFood += dt) > 6) { S.accFood = 0; if (S.foods.filter(f => f.alive).length < 10) { const p = freeSpot(S, 26); if (p) S.foods.push({ ...p, alive: true, ph: rnd(TAU) }); } }
+    if (S.cnt === S.trees.length && S.trees.length < 14 && (S.sapling += dt) > 2.5) {
+      S.sapling = 0; const p = freeSpot(S, 70);
+      if (p) { const i = S.trees.length; S.trees.push({ ...p, r: 11, n: addNode(p.x, p.y, i), connected: false }); ring(p.x, p.y, '242,181,90'); toast('Вырос новый росток'); mst(); }
+    }
+  } else if (!S.won && S.cnt === S.trees.length) { S.won = true; $('win').hidden = false; $('w-ideal').hidden = false; $('b-done').hidden = false;
+    toast(levelId === 'tokyo' ? 'Все города связаны. Обрежьте лишнее и нажмите «Готово»' : 'Лес ожил. Рост остановлен: обрежьте лишнее и нажмите «Готово»'); tone(523.3, 2.2, .1); tone(659.3, 2.4, .08); tone(784, 2.6, .06); }
+}
+function sprout() {
+  let best = -1, bd = 1e12;
+  for (let k = 0; k < 14; k++) {
+    const i = Math.floor(rnd(S.nodes.length)), n = S.nodes[i];
+    if (!(n.tree === 0 || n.adj.some(ei => !S.edges[ei].dying))) continue;
+    if (n.tree > 0 && !S.trees[n.tree].connected) continue;
+    let d = 1e9; for (const tr of S.trees) if (!tr.connected) d = Math.min(d, (tr.x - n.x) ** 2 + (tr.y - n.y) ** 2);
+    d = S.sandbox ? d * rnd(.5, 1.5) : Math.random(); if (d < bd) { bd = d; best = i; }
+  }
+  if (best >= 0) spawnTip(best, rnd(TAU));
+}
+const ring = (x, y, c) => S.rings.push({ x, y, c, a: 0 });
+
+/* ---------- drawing ---------- */
+const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const rgb = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+const LUSH = [[30, 72, 50], [58, 116, 68], [118, 170, 88]], DRY = [[62, 54, 42], [104, 90, 60], [152, 132, 90]], FROST = [208, 222, 226];
+const PETAL = [[244, 196, 208], [250, 240, 214], [246, 208, 110], [200, 182, 238]];
+const CAP = [[222, 96, 74], [238, 160, 92], [240, 226, 196]];
+/* ---------- mushroom species: which one grows depends on where the live path runs ---------- */
+const SP = {
+  russ: { n: 'Сыроежка', h: 'Растёт на любом живом пути', c: [222, 96, 74], shape: 'cap' },
+  bolete: { n: 'Боровик', h: 'Рядом с ожившим деревом', c: [150, 98, 60], shape: 'cap', plain: 1 },
+  chant: { n: 'Лисичка', h: 'На общем пути к трём и более деревьям', c: [244, 174, 62], shape: 'funnel' },
+  rock: { n: 'Каменный трутовик', h: 'Вплотную к замшелому валуну', c: [178, 152, 122], shape: 'ring' },
+  puff: { n: 'Дождевик', h: 'В сухой проплешине', c: [238, 232, 214], shape: 'puff' },
+  winter: { n: 'Зимний опёнок', h: 'Вырастает только зимой', c: [226, 142, 66], shape: 'ring' },
+  fly: { n: 'Мухомор', h: 'Далеко от материнского дерева', c: [208, 48, 52], shape: 'cap', big: 1 },
+  shore: { n: 'Береговая вешенка', h: 'У самой воды. Ищите в Токио', c: [168, 186, 202], shape: 'ring' },
+  ink: { n: 'Чернильный гриб', h: 'Иногда вырастает на месте среза', c: [72, 70, 96], shape: 'cap', plain: 1 },
+  daily: { n: 'Рыжик дня', h: 'Редкий. Только на Поляне дня', c: [255, 132, 96], shape: 'funnel', glow: [255, 170, 120] },
+  glow: { n: 'Ночной огонёк', h: 'Редкий. Появляется, когда ожил весь лес', c: [150, 240, 204], shape: 'cap', plain: 1, glow: [150, 240, 204] },
+  truffle: { n: 'Трюфель', h: 'Редкий. Награда за три звезды', c: [86, 64, 52], shape: 'puff' },
+};
+const SP_ORDER = ['russ', 'bolete', 'chant', 'rock', 'puff', 'winter', 'fly', 'shore', 'ink', 'daily', 'glow', 'truffle'];
+function pickSpecies(n, ni) {
+  const c = [], near = (o, pad) => (o.x - n.x) ** 2 + (o.y - n.y) ** 2 < (o.r + pad) ** 2, h = S.trees[0];
+  if (S.won) c.push(['glow', .03]);
+  if (S.day) c.push(['daily', .025]);
+  if (S.winter) c.push(['winter', .5]);
+  if (S.rocks.some(r => near(r, 16))) c.push([S.water ? 'shore' : 'rock', .65]);
+  if (S.drys.some(d => near(d, -6))) c.push(['puff', .6]);
+  if (Math.hypot(n.x - h.x, n.y - h.y) > .52 * Math.hypot(R.w, R.h)) c.push(['fly', .45]);
+  if (S.pc && S.pc[ni] >= 3) c.push(['chant', .45]);
+  if (S.trees.some(t => t.connected && (t.x - n.x) ** 2 + (t.y - n.y) ** 2 < (t.cr + 34) ** 2)) c.push(['bolete', .6]);
+  for (const [id, ch] of c) if (Math.random() < ch) return id;
+  return 'russ';
+}
+function readHerb() { try { const h = JSON.parse(localStorage.getItem('myc.herb') || '{}'); return h && typeof h === 'object' && !Array.isArray(h) ? h : {}; } catch (e) { return {}; } }
+let herbMem = null; // also works when browser storage is unavailable
+function discover(id, x, y) {
+  if (!SP[id]) return; herbMem = herbMem || readHerb(); const fresh = !herbMem[id];
+  herbMem[id] = (herbMem[id] | 0) + 1; try { localStorage.setItem('myc.herb', JSON.stringify(herbMem)); } catch (e) {}
+  if (fresh) { toast('Новый вид в гербарии: ' + SP[id].n); tone(659.3, .9, .07); tone(987.8, 1.2, .05); if (x !== undefined) ring(x, y, '166,227,196'); }
+}
+const found = () => { herbMem = herbMem || readHerb(); return SP_ORDER.filter(k => herbMem[k] > 0); };
+function drawShroom(g, x, y, r, sp, ghost) {
+  const circle = (cx, cy, rr, fill) => { g.fillStyle = fill; g.beginPath(); g.arc(cx, cy, rr, 0, TAU); g.fill(); };
+  if (ghost) { circle(x, y, r, 'rgba(245,238,214,.1)'); g.strokeStyle = 'rgba(245,238,214,.25)'; g.lineWidth = 1; g.setLineDash([2, 3]); g.beginPath(); g.arc(x, y, r, 0, TAU); g.stroke(); g.setLineDash([]); return; }
+  if (sp.glow) { const q = g.createRadialGradient(x, y, 0, x, y, r * 3.2); q.addColorStop(0, rgb(sp.glow, .55)); q.addColorStop(1, rgb(sp.glow, 0)); g.fillStyle = q; g.beginPath(); g.arc(x, y, r * 3.2, 0, TAU); g.fill(); }
+  circle(x + r * .35, y + r * .5, r, 'rgba(8,16,12,.3)'); circle(x, y, r, rgb(sp.c));
+  const dark = rgb(mix(sp.c, [30, 20, 16], .35)), light = rgb(mix(sp.c, [255, 255, 255], .45));
+  if (sp.shape === 'funnel') { circle(x, y, r * .5, dark); g.strokeStyle = light; g.lineWidth = Math.max(.6, r * .16); g.beginPath(); g.arc(x, y, r * .9, 3.4, 5.2); g.stroke(); }
+  else if (sp.shape === 'ring') { g.strokeStyle = dark; g.lineWidth = Math.max(.6, r * .14); for (const k of [.4, .72]) { g.beginPath(); g.arc(x, y, r * k, 0, TAU); g.stroke(); } }
+  else if (sp.shape === 'puff') { for (let i = 0; i < 5; i++) circle(x + Math.cos(i * 1.257) * r * .5, y + Math.sin(i * 1.257) * r * .5, r * .2, light); circle(x, y, r * .2, light); }
+  else { circle(x - r * .25, y - r * .3, r * .5, 'rgba(255,255,255,.28)');
+    if (!sp.plain) { const k = sp.big ? .24 : .17; g.fillStyle = 'rgba(255,250,240,.95)'; for (const [dx, dy] of sp.big ? [[.4, .1], [-.35, .4], [-.1, -.5], [.3, -.45], [-.6, -.1]] : [[.35, .1], [-.3, .4]]) { g.beginPath(); g.arc(x + r * dx, y + r * dy, r * k, 0, TAU); g.fill(); } } }
+}
+function renderHerb() {
+  const f = found(), grid = $('h-grid'); grid.textContent = ''; $('h-sum').textContent = `Найдено ${f.length} из ${SP_ORDER.length}. Какой гриб вырастет, зависит от того, где проходит живой путь.`;
+  for (const id of SP_ORDER) {
+    const sp = SP[id], has = f.includes(id), card = document.createElement('div'), c = mk(), nm = document.createElement('b'), hint = document.createElement('span'); card.className = 'sp' + (has ? '' : ' no');
+    c.width = c.height = 128; c.setAttribute('role', 'img'); c.setAttribute('aria-label', has ? sp.n : 'Вид не найден'); const g = c.getContext('2d'); drawShroom(g, 62, 62, 19, sp, !has);
+    nm.textContent = has ? sp.n : 'Не найден'; hint.textContent = sp.h + (has ? ` · ${herbMem[id] | 0} шт.` : ''); card.append(c, nm, hint); grid.append(card);
+  }
+}
+function dress(t, i) {
+  t.cr = S.water ? 12 : i === 0 ? 30 : 24; t.ph = rnd(TAU); t.life = t.connected ? 1 : 0; t.blobs = [{ x: 0, y: 0, r: t.cr * .7 }];
+  const k = S.water ? 5 : 8;
+  for (let j = 0; j < k; j++) { const a = j / k * TAU + rnd(-.3, .3); t.blobs.push({ x: Math.cos(a) * t.cr * .5, y: Math.sin(a) * t.cr * .5, r: t.cr * rnd(.46, .62) }); }
+  t.fl = [];
+  for (let j = 0; j < (S.water ? 4 : 11); j++) { const a = rnd(TAU), d = t.cr * rnd(1.15, 1.95), x = Math.cos(a) * d, y = Math.sin(a) * d; if (!blocked(t.x + x, t.y + y)) t.fl.push({ x, y, c: PETAL[j % 4] }); }
+}
+function ground(cv, lush) { // the same floor twice: withered, and alive
+  cv.width = W * DPR; cv.height = H * DPR; const g = cv.getContext('2d'); g.scale(DPR, DPR);
+  const gr = g.createRadialGradient(W / 2, H * .5, 0, W / 2, H * .5, Math.max(W, H) * .72), C = lush ? ['#2f4a39', '#243a2c', '#16241c'] : ['#35352e', '#2b2b26', '#1c1d1a'];
+  gr.addColorStop(0, C[0]); gr.addColorStop(.6, C[1]); gr.addColorStop(1, C[2]); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 46; i++) {
+    const x = rnd(W), y = rnd(H), r = rnd(30, 90), q = g.createRadialGradient(x, y, 0, x, y, r), c = lush ? (Math.random() < .5 ? '96,150,88' : '60,110,86') : '120,110,92';
+    q.addColorStop(0, `rgba(${c},${lush ? .16 : .07})`); q.addColorStop(1, `rgba(${c},0)`); g.fillStyle = q; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  }
+  const LEAF = lush ? ['196,142,66', '214,112,62', '150,160,84', '98,134,78', '226,186,104'] : ['120,102,78', '98,90,74', '138,120,92', '84,80,68', '110,96,76'];
+  for (let i = 0; i < W * H / (lush ? 1500 : 2200); i++) {
+    g.save(); g.translate(rnd(W), rnd(H)); g.rotate(rnd(TAU)); g.fillStyle = `rgba(${LEAF[Math.floor(rnd(5))]},${rnd(.16, lush ? .42 : .3)})`;
+    g.beginPath(); g.ellipse(0, 0, rnd(2.2, 4.2), rnd(1, 1.9), 0, 0, TAU); g.fill(); g.restore();
+  }
+  if (lush) for (let i = 0; i < W * H / 700; i++) { g.fillStyle = `rgba(170,210,130,${rnd(.1, .26)})`; g.beginPath(); g.arc(rnd(W), rnd(H), rnd(.6, 1.5), 0, TAU); g.fill(); }
+}
+function paintBg() {
+  ground(bg, true); ground(bgDry, false); rev.width = W; rev.height = H;
+  props.width = W * DPR; props.height = H * DPR; const g = props.getContext('2d'); g.scale(DPR, DPR);
+  for (const d of S.drys) {
+    const q = g.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r); q.addColorStop(0, 'rgba(216,180,112,.42)'); q.addColorStop(.7, 'rgba(206,168,104,.26)'); q.addColorStop(1, 'rgba(206,168,104,0)');
+    g.fillStyle = q; g.beginPath(); g.arc(d.x, d.y, d.r, 0, TAU); g.fill();
+    g.strokeStyle = 'rgba(236,206,140,.4)'; g.lineWidth = 1; g.lineCap = 'round';
+    for (let i = 0; i < d.r * .7; i++) { const a = rnd(TAU), r = Math.sqrt(Math.random()) * d.r * .85, x = d.x + Math.cos(a) * r, y = d.y + Math.sin(a) * r, b = rnd(-.5, .5) - 1.57; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(b) * 5, y + Math.sin(b) * 5); g.stroke(); }
+  }
+  for (const r of S.rocks) {
+    const k = 22, ph = rnd(TAU), path = new Path2D();
+    for (let i = 0; i <= k; i++) { const a = i / k * TAU, rr = r.r * (S.water ? 1 : .93 + .07 * Math.sin(a * 3 + ph)); path[i ? 'lineTo' : 'moveTo'](r.x + Math.cos(a) * rr, r.y + Math.sin(a) * rr); }
+    if (S.water) {
+      const q = g.createRadialGradient(r.x, r.y, 0, r.x, r.y, r.r); q.addColorStop(0, '#3f8496'); q.addColorStop(1, '#2d6474'); g.fillStyle = q; g.fill(path);
+      g.strokeStyle = 'rgba(214,238,232,.3)'; g.lineWidth = 2; g.stroke(path); continue;
+    }
+    g.save(); g.translate(4, 6); g.fillStyle = 'rgba(8,16,12,.3)'; g.fill(path); g.restore();
+    const q = g.createLinearGradient(r.x - r.r, r.y - r.r, r.x + r.r, r.y + r.r); q.addColorStop(0, '#8c9088'); q.addColorStop(1, '#565c57'); g.fillStyle = q; g.fill(path);
+    g.save(); g.clip(path);
+    g.fillStyle = 'rgba(255,255,255,.1)'; g.beginPath(); g.arc(r.x - r.r * .3, r.y - r.r * .35, r.r * .55, 0, TAU); g.fill();
+    for (let i = 0; i < 4; i++) { const a = ph + i * 1.9; g.fillStyle = `rgba(${i % 2 ? '104,152,84' : '74,124,76'},.85)`; g.beginPath(); g.arc(r.x + Math.cos(a) * r.r * .8, r.y + Math.sin(a) * r.r * .8, r.r * rnd(.28, .46), 0, TAU); g.fill(); }
+    g.restore();
+  }
+}
+function drawTree(t, i) {
+  const L = t.life, sc = .72 + .28 * L, sx = Math.sin(S.t * 1.1 + t.ph) * 1.6 * L, sy = Math.cos(S.t * .9 + t.ph) * 1.1 * L;
+  const pal = [0, 1, 2].map(j => { const c = mix(DRY[j], LUSH[j], L); return S.wint > .01 ? mix(c, FROST, S.wint * .42) : c; });
+  if (L > .02) { const g = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, t.cr * 2.3); g.addColorStop(0, `rgba(244,196,110,${.2 * L})`); g.addColorStop(1, 'rgba(244,196,110,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(t.x, t.y, t.cr * 2.3, 0, TAU); ctx.fill(); }
+  t.fl.forEach((f, j) => {
+    const a = clamp(L * t.fl.length - j, 0, 1); if (a <= 0) return; const x = t.x + f.x, y = t.y + f.y;
+    ctx.fillStyle = rgb(f.c, .95); for (let q = 0; q < 4; q++) { ctx.beginPath(); ctx.arc(x + Math.cos(q * 1.571) * 1.9 * a, y + Math.sin(q * 1.571) * 1.9 * a, 1.5 * a, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#f4b860'; ctx.beginPath(); ctx.arc(x, y, a, 0, TAU); ctx.fill();
+  });
+  const layer = (ox, oy, k, fill) => { const p = new Path2D(); for (const b of t.blobs) { const x = t.x + b.x * sc + ox, y = t.y + b.y * sc + oy; p.moveTo(x + b.r * sc * k, y); p.arc(x, y, b.r * sc * k, 0, TAU); } ctx.fillStyle = fill; ctx.fill(p); };
+  layer(5, 7, 1, 'rgba(8,16,12,.3)');
+  layer(sx * .4, sy * .4, 1, rgb(pal[0], .96));
+  layer(sx - 2, sy - 3, .76, rgb(pal[1], .96));
+  layer(sx * 1.4 - 4, sy * 1.4 - 6, .42, rgb(pal[2], .9));
+  if (L < .9) { ctx.strokeStyle = `rgba(244,184,96,${(.3 + .2 * Math.sin(S.t * 2.4 + t.ph)) * (1 - L)})`; ctx.lineWidth = 1.5; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.arc(t.x, t.y, t.cr * sc + 7, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
+  if (t.name) { ctx.font = '600 10px Manrope,system-ui,sans-serif'; ctx.textAlign = t.x > W - 70 ? 'right' : 'left'; const tx = t.x + (t.x > W - 70 ? -14 : 14), ty = t.y - 9; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(22,36,28,.75)'; ctx.strokeText(t.name, tx, ty); ctx.fillStyle = L > .5 ? 'rgba(245,238,214,.98)' : 'rgba(190,198,176,.9)'; ctx.fillText(t.name, tx, ty); }
+}
+function draw() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(bgDry, 0, 0, W, H);
+  { // the forest floor comes alive around revived trees and along live paths
+    const r = rev.getContext('2d'); r.globalCompositeOperation = 'source-over'; r.clearRect(0, 0, W, H);
+    if (S.bloom > .01) { r.fillStyle = `rgba(255,255,255,${S.bloom})`; r.fillRect(0, 0, W, H); }
+    for (const t of S.trees) { if (!(t.life > .01)) continue; const q = t.cr * (S.water ? 3.4 : 4.4) * (.35 + .65 * t.life); r.globalAlpha = Math.min(1, t.life * 1.6); r.drawImage(BLOB, t.x - q, t.y - q, q * 2, q * 2); }
+    for (const d of S.decor) { const q = 38 * d.s; if (q < 1) continue; r.globalAlpha = Math.min(1, d.s); r.drawImage(BLOB, d.x - q, d.y - q, q * 2, q * 2); }
+    r.globalAlpha = 1; r.globalCompositeOperation = 'source-in'; r.drawImage(bg, 0, 0, W, H);
+    ctx.drawImage(rev, 0, 0, W, H); ctx.drawImage(props, 0, 0, W, H);
+  }
+  if (S.wint > .01) { ctx.fillStyle = `rgba(196,220,236,${.16 * S.wint})`; ctx.fillRect(0, 0, W, H); }
+  ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (let i = 0; i < 5; i++) { // light through the canopy
+    const x = W * (.15 + .7 * ((i * .381) % 1)) + Math.sin(S.t * .07 + i * 2.1) * 50, y = H * (.12 + .76 * ((i * .618) % 1)) + Math.cos(S.t * .05 + i) * 40, r = 110 + 30 * Math.sin(S.t * .11 + i);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(255,232,170,${.07 * (1 - S.wint * .6)})`); g.addColorStop(1, 'rgba(255,232,170,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  }
+  const p0 = new Path2D(), p1 = new Path2D(), p2 = new Path2D(), pd = new Path2D(), N = S.nodes;
+  for (const e of S.edges) { if (!e.alive) continue; const a = N[e.a], b = N[e.b], p = e.dying ? pd : e.flow > .7 ? p2 : e.flow > .2 ? p1 : p0; p.moveTo(a.x, a.y); p.lineTo(b.x, b.y); }
+  for (const t of S.tips) { const n = N[t.n]; p0.moveTo(n.x, n.y); p0.lineTo(n.x + Math.cos(t.a) * t.prog, n.y + Math.sin(t.a) * t.prog); }
+  const st = (p, c, w) => { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.stroke(p); };
+  st(pd, 'rgba(238,138,108,.4)', 1);
+  st(p0, 'rgba(210,225,170,.06)', 5); st(p0, 'rgba(245,238,214,.5)', 1.1);
+  st(p1, 'rgba(166,227,196,.08)', 7); st(p1, 'rgba(250,244,222,.75)', 1.9);
+  st(p2, 'rgba(255,226,160,.10)', 11); st(p2, 'rgba(255,250,232,.95)', 3);
+  ctx.fillStyle = 'rgba(255,250,232,.9)';
+  for (const t of S.tips) { const n = N[t.n]; ctx.beginPath(); ctx.arc(n.x + Math.cos(t.a) * t.prog, n.y + Math.sin(t.a) * t.prog, 1.6, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = 'rgba(255,214,130,.95)';
+  for (const u of S.pulses) { const k = u.rev ? u.p.length - 1 - u.i : u.i, i = Math.floor(k), f = k - i, a = N[u.p[i]], b = N[u.p[Math.min(i + 1, u.p.length - 1)]]; if (!a || !b) continue; ctx.beginPath(); ctx.arc(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f, 2.6, 0, TAU); ctx.fill(); }
+  for (const r of S.rings) { ctx.strokeStyle = `rgba(${r.c},${.6 * (1 - r.a / 1.4)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(r.x, r.y, 8 + r.a * 46, 0, TAU); ctx.stroke(); }
+  ctx.globalCompositeOperation = 'source-over';
+  for (const f of S.foods) if (f.alive) { // berries
+    const k = 1 + .08 * Math.sin(S.t * 2 + f.ph);
+    for (let q = 0; q < 3; q++) { const x = f.x + Math.cos(q * 2.094 + f.ph) * 2.6 * k, y = f.y + Math.sin(q * 2.094 + f.ph) * 2.6 * k; ctx.fillStyle = '#d9525a'; ctx.beginPath(); ctx.arc(x, y, 2.5 * k, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(255,220,220,.8)'; ctx.beginPath(); ctx.arc(x - .8, y - .8, .7, 0, TAU); ctx.fill(); }
+  }
+  for (const d of S.decor) { const e = d.s * (1.25 - .25 * d.s); if (d.r * e > .2) drawShroom(ctx, d.x, d.y, d.r * e, SP[d.sp] || SP.russ); }
+  if (S.ideal) { ctx.setLineDash([5, 6]); ctx.strokeStyle = 'rgba(244,184,96,.9)'; ctx.lineWidth = 1.5; ctx.beginPath(); for (const [a, b] of S.mst) { ctx.moveTo(S.trees[a].x, S.trees[a].y); ctx.lineTo(S.trees[b].x, S.trees[b].y); } ctx.stroke(); ctx.setLineDash([]); }
+  S.trees.forEach((t, i) => { if (t.blobs) drawTree(t, i); });
+  ctx.globalCompositeOperation = 'lighter';
+  const nf = 5 + Math.round(13 * (S.cnt || 1) / S.trees.length);
+  for (let i = 0; i < nf; i++) { // fireflies
+    const x = W * ((i * .7548) % 1) + Math.sin(S.t * .31 + i * 1.7) * 34 + Math.sin(S.t * .9 + i) * 6, y = H * ((i * .5698) % 1) + Math.cos(S.t * .27 + i * 2.3) * 30, a = .35 + .35 * Math.sin(S.t * 1.7 + i * 3.1);
+    if (a <= 0) continue; const g = ctx.createRadialGradient(x, y, 0, x, y, 7); g.addColorStop(0, `rgba(255,226,140,${a})`); g.addColorStop(1, 'rgba(255,226,140,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 7, 0, TAU); ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  if (S.wint > .05) { ctx.fillStyle = `rgba(255,255,255,${.6 * S.wint})`; for (let i = 0; i < 46; i++) { const x = ((i * 97.3 + Math.sin(S.t * .6 + i) * 18) % W + W) % W, y = (S.t * (22 + i % 7 * 4) + i * 53) % H; ctx.beginPath(); ctx.arc(x, y, 1 + (i % 3) * .5, 0, TAU); ctx.fill(); } }
+  if (ptr.down && !menuOpen) { ctx.strokeStyle = mode === 'cut' ? 'rgba(238,138,108,.8)' : 'rgba(245,238,214,.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ptr.x, ptr.y, mode === 'cut' ? 10 : 22 + 3 * Math.sin(S.t * 5), 0, TAU); ctx.stroke(); }
+}
+
+/* ---------- sound ---------- */
+let ac = null;
+function tone(f, dur = 1.2, vol = .1, type = 'sine') {
+  if (muted || !ac) return;
+  try { const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + .05); } catch (e) {}
+}
+function wake() { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } else if (ac.state === 'suspended') ac.resume(); }
+
+/* ---------- interface ---------- */
+const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+let toastT = 0;
+function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 3200); }
+function readPlayed() { try { return JSON.parse(localStorage.getItem('myc.play') || '{}'); } catch (e) { return {}; } }
+function savePlayed() {
+  if (!S || S.play < 1) return;
+  try { const p = readPlayed(); p[levelId] = (p[levelId] || 0) + S.play; S.play = 0; localStorage.setItem('myc.play', JSON.stringify(p)); } catch (e) {}
+}
+function showMenu(on) {
+  if (on) savePlayed();
+  $('forest').hidden = true; $('result').hidden = true;
+  menuOpen = on; $('menu').hidden = !on;
+  if (on) { const p = readPlayed(), parts = Object.keys(NAMES).filter(k => p[k] > 1).map(k => `${NAMES[k]} ${fmt(p[k])}`); $('played').textContent = parts.length ? 'Вы играли: ' + parts.join(' · ') : ''; }
+}
+/* ---------- finishing, the forest collection and the shared rating ---------- */
+const eff = () => Math.round(clamp(S.mstLen / Math.max(1, S.aliveLen), 0, 1) * 100);
+const starsOf = e => e >= STARS[1] ? 3 : e >= STARS[0] ? 2 : 1, STARS = [45, 65];
+const starText = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+function readForest() { try { const f = JSON.parse(localStorage.getItem('myc.forest') || '[]'); return Array.isArray(f) ? f : []; } catch (e) { return []; } }
+function thumb() {
+  try { const c = mk(), k = 150 / (R.w + 20); c.width = 150; c.height = Math.round((R.h + 20) * k); draw();
+    c.getContext('2d').drawImage(cv, (R.x - 10) * DPR, (R.y - 10) * DPR, (R.w + 20) * DPR, (R.h + 20) * DPR, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', .62); } catch (e) { return ''; }
+}
+function streak(f) { const days = new Set(f.filter(e => e.day).map(e => e.day)); let n = 0; const d = new Date(today() + 'T00:00:00Z'); if (!days.has(today())) d.setUTCDate(d.getUTCDate() - 1); while (days.has(d.toISOString().slice(0, 10))) { n++; d.setUTCDate(d.getUTCDate() - 1); } return n; }
+function finish() {
+  if (!S.won || S.sandbox) return;
+  if (S.cnt !== S.trees.length) { toast('Сначала верните связь со всеми деревьями'); return; }
+  const e = eff(), st = starsOf(e), key = S.day ? 'daily:' + S.day : levelId, f = readForest(), old = f.find(x => x.key === key);
+  const entry = { key, name: S.day ? 'Поляна дня ' + dm(S.day) : NAMES[levelId], day: S.day || null, eff: e, stars: st, trees: S.trees.length, at: Date.now(), img: thumb() };
+  if (st === 3) discover('truffle');
+  const best = !old || e > old.eff;
+  if (best) { const g = f.filter(x => x.key !== key); g.unshift(entry); try { localStorage.setItem('myc.forest', JSON.stringify(g.slice(0, 60))); } catch (_) {} }
+  pushScore();
+  S.done = true; menuOpen = true; $('b-done').hidden = true; $('win').hidden = true; $('toast').classList.remove('on'); savePlayed();
+  $('r-title').textContent = entry.name; $('r-eff').textContent = e + '%'; $('r-stars').textContent = starText(st); $('r-stars').setAttribute('aria-label', st + ' из 3 звёзд');
+  $('r-note').textContent = (old ? (best ? `Новый рекорд: было ${old.eff}%.` : `Ваш рекорд здесь ${old.eff}%.`) : 'Поляна добавлена в ваш лес.') + (st < 3 ? ` До ${starText(st + 1)} нужно ${STARS[st - 1]}%.` : '') + (S.day && !db ? ' Общий рейтинг доступен тем, кто открыл игру в Claude под своим аккаунтом.' : '');
+  $('r-share').value = `Мицелий · ${entry.name} · эффективность ${e}% ${starText(st)}`;
+  $('r-copy').textContent = 'Скопировать результат'; $('result').hidden = false;
+}
+function showForest() {
+  savePlayed(); menuOpen = true; $('menu').hidden = true; $('result').hidden = true; $('forest').hidden = false;
+  const f = readForest(), grid = $('f-grid'); grid.textContent = '';
+  $('f-sum').textContent = f.length ? `${f.length} ${plural(f.length, 'поляна', 'поляны', 'полян')} · ${f.reduce((a, e) => a + (e.trees | 0), 0)} деревьев ожило` + (streak(f) > 1 ? ` · ${streak(f)} дн. подряд` : '') : '';
+  $('f-empty').hidden = f.length > 0;
+  for (const e of f) {
+    const card = document.createElement('div'), meta = document.createElement('div'), nm = document.createElement('b'), sc = document.createElement('span'); card.className = 'card';
+    if (typeof e.img === 'string' && e.img.startsWith('data:image/jpeg')) { const im = document.createElement('img'); im.src = e.img; im.alt = ''; card.append(im); }
+    nm.textContent = String(e.name || ''); sc.textContent = `${e.eff | 0}% ${starText(clamp(e.stars | 0, 1, 3))}`; meta.append(nm, sc); card.append(meta); grid.append(card);
+  }
+  renderHerb(); renderBoard();
+}
+const plural = (n, a, b, c) => n % 10 === 1 && n % 100 !== 11 ? a : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? b : c;
+let db = null, usr = null, uid = null, board = null, boardSeq = 0;
+async function connect() { // shared rating: one document per person, written only by that person
+  try {
+    if (!window.claude || !window.claude.use) return;
+    const [d, u] = await Promise.all([window.claude.use('db'), window.claude.use('user')]); if (!d || !u) return;
+    const id = await u.id(); if (!id) return; db = d; usr = u; uid = id;
+    const t = setTimeout(() => { if (!board) { board = []; if (!$('forest').hidden) renderBoard(); } }, 10000);
+    db.collection('scores').limit(200).onSnapshot(sn => { clearTimeout(t); board = sn.docs.map(x => ({ id: x.id, ...(x.data() || {}) })); if (!$('forest').hidden) renderBoard(); }, () => { clearTimeout(t); board = board || []; if (!$('forest').hidden) renderBoard(); });
+  } catch (e) { db = null; }
+}
+async function pushScore() {
+  if (!db || !uid) return;
+  try { const f = readForest(), days = {}; f.filter(e => e.day).slice(0, 14).forEach(e => { days[e.day] = e.eff | 0; });
+    await db.doc('scores/' + uid).set({ days, glades: f.length, trees: f.reduce((a, e) => a + (e.trees | 0), 0), species: found().length, at: Date.now() }); } catch (e) {}
+}
+async function renderBoard() {
+  const note = $('f-note'), l1 = $('f-day'), l2 = $('f-big'), seq = ++boardSeq, day = today(); $('f-dayh').textContent = 'Поляна дня ' + dm(day);
+  l1.textContent = ''; l2.textContent = ''; $('f-boards').hidden = !db || !board;
+  if (!db) { note.textContent = 'Общий рейтинг виден тем, кто открыл игру в Claude под своим аккаунтом. Ваш лес хранится в этом браузере.'; return; }
+  if (!board) { note.textContent = 'Загружаю рейтинг…'; return; }
+  const rows = board.map(r => ({ id: String(r.id), e: r.days && typeof r.days === 'object' ? Number(r.days[day]) : NaN, g: Number(r.glades) || 0, t: Number(r.trees) || 0, k: clamp(Number(r.species) || 0, 0, SP_ORDER.length) }));
+  const a = rows.filter(r => r.e >= 0 && r.e <= 100).sort((x, y) => y.e - x.e).slice(0, 20), b = rows.filter(r => r.g > 0 && r.g <= 60).sort((x, y) => y.g - x.g || y.k - x.k || y.t - x.t).slice(0, 20);
+  let names = {}; try { names = await usr.profiles([...new Set([...a, ...b].map(r => r.id))]); } catch (e) {}
+  if (seq !== boardSeq) return;
+  const fill = (ol, list, val) => { ol.textContent = ''; for (const r of list) { const li = document.createElement('li'), n = document.createElement('span'), v = document.createElement('b'); n.textContent = ((names[r.id] && names[r.id].name) || 'Кто-то') + (r.id === uid ? ' (вы)' : ''); v.textContent = val(r); li.append(n, v); ol.append(li); } };
+  fill(l1, a, r => Math.round(r.e) + '%'); fill(l2, b, r => `${r.g} ${plural(r.g, 'поляна', 'поляны', 'полян')} · ${r.k} ${plural(r.k, 'вид', 'вида', 'видов')}`);
+  note.textContent = a.length || b.length ? '' : 'Пока никто не закончил ни одной поляны. Пройдите «Поляну дня» и нажмите «Готово».';
+}
+function setMode(m) { mode = m; $('m-grow').setAttribute('aria-pressed', m === 'grow'); $('m-cut').setAttribute('aria-pressed', m === 'cut'); }
+function hud() {
+  $('st-trees').textContent = `${S.cnt || 1}/${S.trees.length}`;
+  $('st-en').style.width = clamp(S.energy / 400 * 100, 0, 100) + '%';
+  $('st-time').textContent = fmt(S.play);
+  if (S.won) { $('w-eff').textContent = Math.round(clamp(S.mstLen / Math.max(1, S.aliveLen), 0, 1) * 100) + '%'; $('w-len').textContent = Math.round(S.aliveLen); $('w-spent').textContent = Math.round(S.spent); }
+}
+function resize(force) {
+  const w = window.innerWidth, h = window.innerHeight, big = Math.abs(w - W) > 40 || Math.abs(h - H) > 160;
+  DPR = Math.min(2, window.devicePixelRatio || 1); W = w; H = h; cv.width = W * DPR; cv.height = H * DPR;
+  R = { x: 22, y: 96, w: W - 44, h: H - 96 - 96 };
+  if (force || big || !S) init(levelId); else paintBg();
+}
+cv.addEventListener('pointerdown', e => { wake(); ptr.down = true; ptr.x = ptr.px = e.clientX; ptr.y = ptr.py = e.clientY; S.accF = 1; try { cv.setPointerCapture(e.pointerId); } catch (_) {} if (mode === 'cut') cut(ptr.x, ptr.y, ptr.x, ptr.y); });
+cv.addEventListener('pointermove', e => { if (!ptr.down) return; ptr.px = ptr.x; ptr.py = ptr.y; ptr.x = e.clientX; ptr.y = e.clientY; if (mode === 'cut') cut(ptr.px, ptr.py, ptr.x, ptr.y); });
+for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) cv.addEventListener(ev, () => { ptr.down = false; });
+$('m-grow').onclick = () => setMode('grow');
+$('m-cut').onclick = () => setMode('cut');
+$('b-menu').onclick = () => showMenu(true);
+$('b-sound').onclick = e => { muted = !muted; e.currentTarget.setAttribute('aria-pressed', !muted); };
+$('b-done').onclick = finish;
+$('r-copy').onclick = () => { const el = $('r-share'), ok = () => { $('r-copy').textContent = 'Скопировано'; }, sel = () => { el.focus(); el.select(); $('r-copy').textContent = 'Выделено: скопируйте вручную'; };
+  try { navigator.clipboard.writeText(el.value).then(ok, sel); } catch (e) { sel(); } };
+$('r-forest').onclick = showForest; $('b-forest').onclick = showForest;
+$('r-menu').onclick = () => showMenu(true); $('f-back').onclick = () => showMenu(true);
+$('w-ideal').onclick = e => { S.ideal = !S.ideal; e.currentTarget.setAttribute('aria-pressed', S.ideal); };
+document.querySelectorAll('[data-level]').forEach(b => b.onclick = () => { wake(); init(b.dataset.level); setMode('grow'); showMenu(false); });
+window.addEventListener('resize', () => resize(false));
+document.addEventListener('visibilitychange', () => { if (document.hidden) savePlayed(); });
+window.addEventListener('pagehide', savePlayed);
+
+let last = 0, hudT = 0;
+function frame(ts) {
+  const dt = Math.min(.05, (ts - last) / 1000 || 0); last = ts;
+  if (!document.hidden) { step(dt); draw(); if ((hudT += dt) > .25) { hudT = 0; hud(); } }
+  requestAnimationFrame(frame);
+}
+resize(true); showMenu(true); hud(); connect();
+window.__myc = { found, SP, get S() { return S; }, step, init, cut, showMenu, setMode, ptr, finish, showForest, eff, readForest };
+requestAnimationFrame(frame);
+})();
+</script>
