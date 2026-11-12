@@ -55,6 +55,38 @@ button:focus-visible{outline:2px solid var(--sap);outline-offset:2px}
 #win b{color:var(--lichen);font-weight:600}
 #b-sound[aria-pressed="false"]{color:var(--bark);text-decoration:line-through}
 #w-ideal[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+.sheet{position:fixed;left:0;right:0;bottom:0;background:var(--moss);border-top:1px solid var(--line);
+  padding-block:18px calc(env(safe-area-inset-bottom,0px) + 18px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sheet .in,.over .in{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.sheet h2,.over h2{font:italic 500 28px/1.1 var(--display);margin:0}
+.sheet p,.over p{margin:0;font-size:14px;line-height:1.5;color:var(--bark)}
+.score{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.score b{font-size:40px;line-height:1;font-variant-numeric:tabular-nums}
+.score span{font-size:24px;color:var(--amber);letter-spacing:.08em}
+.score small{font-size:12px;color:var(--bark)}
+#r-share{font:400 13px/1.3 var(--ui);color:var(--lichen);background:var(--humus);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;min-width:0;
+  -webkit-user-select:text;user-select:text}
+#r-share:focus-visible{outline:2px solid var(--sap);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row.head{justify-content:space-between}
+.over{position:fixed;inset:0;overflow:auto;background:var(--humus);
+  padding-block:calc(env(safe-area-inset-top,0px) + 20px) calc(env(safe-area-inset-bottom,0px) + 24px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.over h3{font:italic 500 22px/1.1 var(--display);margin:10px 0 0}
+.over h4{font:600 11px/1.2 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--bark);margin:0 0 6px}
+#f-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.card{display:flex;flex-direction:column;gap:6px;min-width:0}
+.card img{width:100%;border-radius:12px;border:1px solid var(--line);display:block}
+.card div{display:flex;flex-direction:column;gap:2px;font-size:12px;min-width:0}
+.card b{font-weight:600;overflow-wrap:anywhere}
+.card span{color:var(--amber);font-variant-numeric:tabular-nums}
+.boards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px}
+.boards ol{margin:0;padding:0;list-style:none;counter-reset:r;display:flex;flex-direction:column;gap:6px}
+.boards li{counter-increment:r;display:flex;gap:8px;align-items:baseline;font-size:14px;min-width:0}
+.boards li::before{content:counter(r);width:1.4em;color:var(--bark);font-variant-numeric:tabular-nums;flex:none}
+.boards li span{flex:1;min-width:0;overflow-wrap:anywhere}
+.boards li b{font-variant-numeric:tabular-nums;white-space:nowrap}
 .primary{background:var(--amber);color:var(--humus);border-color:transparent}
 #menu{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center;overflow:auto;
   background:linear-gradient(transparent 0%,rgba(22,36,28,.8) 42%,var(--humus) 100%);
@@ -92,11 +124,37 @@ button:focus-visible{outline:2px solid var(--sap);outline-offset:2px}
     <button id="m-cut" aria-pressed="false">Резать</button>
   </div>
   <button id="w-ideal" class="quiet" aria-pressed="false" hidden>Идеал</button>
+  <button id="b-done" class="primary" hidden>Готово</button>
   <button id="b-menu" class="quiet">Уровни</button>
   <button id="b-sound" class="quiet" aria-pressed="true" aria-label="Звук">Звук</button>
 </div>
 
 <div id="win" hidden>Эффективность <b id="w-eff">0%</b> · сеть <b id="w-len">0</b> · энергии ушло <b id="w-spent">0</b></div>
+
+<div id="result" class="sheet" hidden>
+  <div class="in">
+    <h2 id="r-title">Поляна</h2>
+    <div class="score"><b id="r-eff">0%</b><span id="r-stars">☆☆☆</span><small>эффективность сети</small></div>
+    <p id="r-note"></p>
+    <input id="r-share" readonly aria-label="Результат для отправки">
+    <div class="row"><button id="r-copy" class="primary">Скопировать результат</button><button id="r-forest">Мой лес</button><button id="r-menu">Уровни</button></div>
+  </div>
+</div>
+
+<div id="forest" class="over" hidden>
+  <div class="in">
+    <div class="row head"><h2>Мой лес</h2><button id="f-back">Уровни</button></div>
+    <p id="f-sum"></p>
+    <p id="f-empty">Здесь появятся ваши поляны. Соедините все деревья на уровне, обрежьте лишнее и нажмите «Готово».</p>
+    <div id="f-grid"></div>
+    <h3>Рейтинг</h3>
+    <p id="f-note"></p>
+    <div class="boards" id="f-boards">
+      <div><h4 id="f-dayh">Поляна дня</h4><ol id="f-day"></ol></div>
+      <div><h4>Самые большие леса</h4><ol id="f-big"></ol></div>
+    </div>
+  </div>
+</div>
 
 <div id="menu">
   <div class="in">
@@ -109,9 +167,11 @@ button:focus-visible{outline:2px solid var(--sap);outline-offset:2px}
     </ul>
     <div class="levels">
       <button class="primary" data-level="glade">Поляна <span>без цели, просто растить</span></button>
+      <button data-level="daily">Поляна дня <span>одна на всех сегодня, с рейтингом</span></button>
       <button data-level="grove">Роща <span>6 деревьев, камни, сушь, зима</span></button>
       <button data-level="tokyo">Токио <span>19 городов Канто</span></button>
     </div>
+    <button id="b-forest" class="quiet">Мой лес и рейтинг</button>
     <div id="played"></div>
   </div>
 </div>
@@ -123,9 +183,13 @@ const $ = id => document.getElementById(id);
 const cv = $('c'), ctx = cv.getContext('2d');
 const SEG = 6, CELL = 12, SPEED = 30, COST = 0.03, MAXN = 7000;
 const TAU = Math.PI * 2;
-const rnd = (a = 1, b) => b === undefined ? Math.random() * a : a + Math.random() * (b - a);
+let RNG = Math.random;
+const rnd = (a = 1, b) => b === undefined ? RNG() * a : a + RNG() * (b - a);
+const seeded = str => { let h = 1779033703; for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 3432918353), h = h << 13 | h >>> 19; let a = h >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
+const today = () => new Date().toISOString().slice(0, 10);
+const dm = d => d.slice(8, 10) + '.' + d.slice(5, 7);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-const NAMES = { glade: 'Поляна', grove: 'Роща', tokyo: 'Токио' };
+const NAMES = { glade: 'Поляна', daily: 'Поляна дня', grove: 'Роща', tokyo: 'Токио' };
 
 let W = 0, H = 0, DPR = 1, R = { x: 0, y: 0, w: 0, h: 0 };
 let S = null, levelId = 'glade', mode = 'grow', muted = false, menuOpen = true;
@@ -143,7 +207,24 @@ const KANTO = [ // approximate coordinates (lat, lon); the first is home
   ['Нарита', 35.78, 140.32], ['Ацуги', 35.44, 139.36], ['Ояма', 36.31, 139.80]];
 const KANTO_WATER = [[35.50, 139.90, 0.12], [35.36, 139.79, 0.085], [35.12, 139.42, 0.17], [35.20, 140.05, 0.2]];
 
+function buildDaily() { // the same glade for everyone on a given UTC day, laid out on a fixed 360x600 field and scaled to the screen
+  const real = R, L = { trees: [], foods: [], rocks: [], drys: [], sandbox: false, seasons: true, water: false, incomeMul: .35, start: 120, bonus: 30, pull: 55, day: today() };
+  RNG = seeded('mycelium-' + L.day); R = { x: 0, y: 0, w: 360, h: 600 };
+  try {
+    L.trees.push({ x: rnd(120, 240), y: rnd(520, 570), r: 11 });
+    for (let i = 0, n = 4 + Math.floor(rnd(3)); i < n; i++) L.rocks.push({ x: rnd(30, 330), y: rnd(60, 480), r: rnd(22, 40) });
+    for (let i = 0, n = 2 + Math.floor(rnd(2)); i < n; i++) L.drys.push({ x: rnd(50, 310), y: rnd(60, 500), r: rnd(40, 58) });
+    for (const r of L.rocks) { const t = L.trees[0], d = Math.hypot(r.x - t.x, r.y - t.y); if (d < r.r + 30) r.r = Math.max(8, d - 30); }
+    for (let i = 0, n = 6 + Math.floor(rnd(2)); i < n; i++) { const p = freeSpot(L, 92); if (p) L.trees.push({ ...p, r: 11 }); }
+    for (let i = 0; i < 12; i++) { const p = freeSpot(L, 26); if (p) L.foods.push({ ...p, alive: true, ph: rnd(TAU) }); }
+  } finally { RNG = Math.random; R = real; }
+  const k = Math.min(R.w / 360, R.h / 600), ox = R.x + (R.w - 360 * k) / 2, oy = R.y + (R.h - 600 * k) / 2;
+  for (const a of [L.trees, L.foods, L.rocks, L.drys]) for (const o of a) { o.x = ox + o.x * k; o.y = oy + o.y * k; }
+  for (const a of [L.rocks, L.drys]) for (const o of a) o.r *= k;
+  return L;
+}
 function buildLevel(id) {
+  if (id === 'daily') return buildDaily();
   const m = Math.min(R.w, R.h);
   const P = (x, y) => ({ x: R.x + x * R.w, y: R.y + y * R.h });
   const L = { trees: [], foods: [], rocks: [], drys: [], sandbox: false, seasons: true, water: false, incomeMul: .35, start: 120, bonus: 30, pull: 55 };
@@ -231,12 +312,13 @@ function init(id) {
   const L = buildLevel(id);
   S = { ...L, nodes: [], edges: [], tips: [], grid: new Map(), pulses: [], rings: [], decor: [], accM: 0, bloom: 0, paths: [], dead: 0,
     energy: L.start, spent: 0, t: 0, play: 0, maxTips: 18, dirty: true, won: false, ideal: false, wint: 0, winter: false,
-    accA: 0, accS: 0, accF: 0, accP: 0, accFood: 0, sapling: 0, aliveLen: 0, mst: [], mstLen: 0 };
+    done: false, accA: 0, accS: 0, accF: 0, accP: 0, accFood: 0, sapling: 0, aliveLen: 0, mst: [], mstLen: 0 };
   S.trees.forEach((t, i) => { t.n = addNode(t.x, t.y, i); t.connected = i === 0; });
   for (let i = 0; i < 5; i++) spawnTip(S.trees[0].n, rnd(TAU));
   mst(); paintBg();
   $('lvl').textContent = NAMES[id]; $('toast').classList.remove('on'); $('win').hidden = true;
-  $('w-ideal').hidden = true; $('w-ideal').setAttribute('aria-pressed', 'false');
+  $('w-ideal').hidden = true; $('w-ideal').setAttribute('aria-pressed', 'false'); $('b-done').hidden = true; $('result').hidden = true;
+  if (id === 'daily') $('lvl').textContent = 'День ' + dm(L.day);
 }
 function mst() {
   const T = S.trees, inT = [0], rest = T.map((_, i) => i).slice(1); S.mst = []; S.mstLen = 0;
@@ -310,7 +392,7 @@ function analyse() {
   });
   S.cnt = cnt;
   // dead ends retract, as Physarum does
-  const age = S.winter ? 5 : 16, pr = S.winter ? .9 : .5;
+  const age = S.won ? 2 : S.winter ? 5 : 16, pr = S.winter ? .9 : .5;
   for (const n of S.nodes) {
     if (n.tree >= 0 || n.tips > 0 || n.adj.length !== 1) continue;
     const e = S.edges[n.adj[0]];
@@ -350,13 +432,15 @@ function step(dt) {
   for (let i = S.decor.length - 1; i >= 0; i--) { const d = S.decor[i]; d.s = d.dying ? d.s - dt * 2 : Math.min(1, d.s + dt * 3); if (d.dying && d.s <= 0) S.decor.splice(i, 1); }
   S.energy = Math.min(400, S.energy + dt * (2.5 + 1.5 * ((S.cnt || 1) - 1)) * S.incomeMul * (S.winter ? .5 : 1));
   S.maxTips = clamp(S.energy / 8, 3, 30);
-  if (S.energy > .5) for (let i = S.tips.length - 1; i >= 0; i--) {
+  const frozen = S.won && !(ptr.down && mode === 'grow' && !menuOpen); // after the win the network only grows where the player asks
+  if (frozen && S.tips.length) { for (const t of S.tips) S.nodes[t.n].tips--; S.tips = []; S.dirty = true; } // loose ends retract once growth stops
+  if (S.energy > .5 && !frozen) for (let i = S.tips.length - 1; i >= 0; i--) {
     const t = S.tips[i]; t.prog += SPEED * (S.winter ? .5 : 1) * t.sm * dt;
     if (t.prog >= SEG) { t.prog -= SEG; if (!advance(t)) { S.nodes[t.n].tips--; S.tips.splice(S.tips.indexOf(t), 1); } }
   }
   for (let i = 0; i < S.edges.length; i++) { const e = S.edges[i]; if (!e.alive) continue; if (e.dying) { e.dying -= dt * 1.2; if (e.dying <= 0) { e.dying = 0; killEdge(i); } } e.flow += (e.ft - e.flow) * Math.min(1, dt * 2.5); }
   if ((S.accA += dt) > .35 || S.dirty) { S.accA = 0; analyse(); }
-  if ((S.accS += dt) > .6) { S.accS = 0; if (S.tips.length < Math.min(4, S.maxTips)) sprout(); }
+  if ((S.accS += dt) > .6) { S.accS = 0; if (!S.won && S.tips.length < Math.min(4, S.maxTips)) sprout(); }
   if (ptr.down && mode === 'grow' && !menuOpen && (S.accF += dt) > .35) {
     S.accF = 0;
     if (!S.tips.some(t => (S.nodes[t.n].x - ptr.x) ** 2 + (S.nodes[t.n].y - ptr.y) ** 2 < 8100)) {
@@ -374,8 +458,8 @@ function step(dt) {
       S.sapling = 0; const p = freeSpot(S, 70);
       if (p) { const i = S.trees.length; S.trees.push({ ...p, r: 11, n: addNode(p.x, p.y, i), connected: false }); ring(p.x, p.y, '242,181,90'); toast('Вырос новый росток'); mst(); }
     }
-  } else if (!S.won && S.cnt === S.trees.length) { S.won = true; $('win').hidden = false; $('w-ideal').hidden = false;
-    toast(levelId === 'tokyo' ? 'Все города связаны. «Идеал» показывает кратчайшее дерево, не настоящие железные дороги' : 'Лес ожил. Обрежьте лишнее и сравните с идеалом'); tone(523.3, 2.2, .1); tone(659.3, 2.4, .08); tone(784, 2.6, .06); }
+  } else if (!S.won && S.cnt === S.trees.length) { S.won = true; $('win').hidden = false; $('w-ideal').hidden = false; $('b-done').hidden = false;
+    toast(levelId === 'tokyo' ? 'Все города связаны. Обрежьте лишнее и нажмите «Готово»' : 'Лес ожил. Рост остановлен: обрежьте лишнее и нажмите «Готово»'); tone(523.3, 2.2, .1); tone(659.3, 2.4, .08); tone(784, 2.6, .06); }
 }
 function sprout() {
   let best = -1, bd = 1e12;
@@ -534,8 +618,73 @@ function savePlayed() {
 }
 function showMenu(on) {
   if (on) savePlayed();
+  $('forest').hidden = true; $('result').hidden = true;
   menuOpen = on; $('menu').hidden = !on;
   if (on) { const p = readPlayed(), parts = Object.keys(NAMES).filter(k => p[k] > 1).map(k => `${NAMES[k]} ${fmt(p[k])}`); $('played').textContent = parts.length ? 'Вы играли: ' + parts.join(' · ') : ''; }
+}
+/* ---------- finishing, the forest collection and the shared rating ---------- */
+const eff = () => Math.round(clamp(S.mstLen / Math.max(1, S.aliveLen), 0, 1) * 100);
+const starsOf = e => e >= STARS[1] ? 3 : e >= STARS[0] ? 2 : 1, STARS = [45, 65];
+const starText = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+function readForest() { try { const f = JSON.parse(localStorage.getItem('myc.forest') || '[]'); return Array.isArray(f) ? f : []; } catch (e) { return []; } }
+function thumb() {
+  try { const c = mk(), k = 150 / (R.w + 20); c.width = 150; c.height = Math.round((R.h + 20) * k); draw();
+    c.getContext('2d').drawImage(cv, (R.x - 10) * DPR, (R.y - 10) * DPR, (R.w + 20) * DPR, (R.h + 20) * DPR, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', .62); } catch (e) { return ''; }
+}
+function streak(f) { const days = new Set(f.filter(e => e.day).map(e => e.day)); let n = 0; const d = new Date(today() + 'T00:00:00Z'); if (!days.has(today())) d.setUTCDate(d.getUTCDate() - 1); while (days.has(d.toISOString().slice(0, 10))) { n++; d.setUTCDate(d.getUTCDate() - 1); } return n; }
+function finish() {
+  if (!S.won || S.sandbox) return;
+  if (S.cnt !== S.trees.length) { toast('Сначала верните связь со всеми деревьями'); return; }
+  const e = eff(), st = starsOf(e), key = S.day ? 'daily:' + S.day : levelId, f = readForest(), old = f.find(x => x.key === key);
+  const entry = { key, name: S.day ? 'Поляна дня ' + dm(S.day) : NAMES[levelId], day: S.day || null, eff: e, stars: st, trees: S.trees.length, at: Date.now(), img: thumb() };
+  const best = !old || e > old.eff;
+  if (best) { const g = f.filter(x => x.key !== key); g.unshift(entry); try { localStorage.setItem('myc.forest', JSON.stringify(g.slice(0, 60))); } catch (_) {} pushScore(); }
+  S.done = true; menuOpen = true; $('b-done').hidden = true; $('win').hidden = true; $('toast').classList.remove('on'); savePlayed();
+  $('r-title').textContent = entry.name; $('r-eff').textContent = e + '%'; $('r-stars').textContent = starText(st); $('r-stars').setAttribute('aria-label', st + ' из 3 звёзд');
+  $('r-note').textContent = (old ? (best ? `Новый рекорд: было ${old.eff}%.` : `Ваш рекорд здесь ${old.eff}%.`) : 'Поляна добавлена в ваш лес.') + (st < 3 ? ` До ${starText(st + 1)} нужно ${STARS[st - 1]}%.` : '') + (S.day && !db ? ' Общий рейтинг доступен тем, кто открыл игру в Claude под своим аккаунтом.' : '');
+  $('r-share').value = `Мицелий · ${entry.name} · эффективность ${e}% ${starText(st)}`;
+  $('r-copy').textContent = 'Скопировать результат'; $('result').hidden = false;
+}
+function showForest() {
+  savePlayed(); menuOpen = true; $('menu').hidden = true; $('result').hidden = true; $('forest').hidden = false;
+  const f = readForest(), grid = $('f-grid'); grid.textContent = '';
+  $('f-sum').textContent = f.length ? `${f.length} ${plural(f.length, 'поляна', 'поляны', 'полян')} · ${f.reduce((a, e) => a + (e.trees | 0), 0)} деревьев ожило` + (streak(f) > 1 ? ` · ${streak(f)} дн. подряд` : '') : '';
+  $('f-empty').hidden = f.length > 0;
+  for (const e of f) {
+    const card = document.createElement('div'), meta = document.createElement('div'), nm = document.createElement('b'), sc = document.createElement('span'); card.className = 'card';
+    if (typeof e.img === 'string' && e.img.startsWith('data:image/jpeg')) { const im = document.createElement('img'); im.src = e.img; im.alt = ''; card.append(im); }
+    nm.textContent = String(e.name || ''); sc.textContent = `${e.eff | 0}% ${starText(clamp(e.stars | 0, 1, 3))}`; meta.append(nm, sc); card.append(meta); grid.append(card);
+  }
+  renderBoard();
+}
+const plural = (n, a, b, c) => n % 10 === 1 && n % 100 !== 11 ? a : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? b : c;
+let db = null, usr = null, uid = null, board = null, boardSeq = 0;
+async function connect() { // shared rating: one document per person, written only by that person
+  try {
+    if (!window.claude || !window.claude.use) return;
+    const [d, u] = await Promise.all([window.claude.use('db'), window.claude.use('user')]); if (!d || !u) return;
+    const id = await u.id(); if (!id) return; db = d; usr = u; uid = id;
+    const t = setTimeout(() => { if (!board) { board = []; if (!$('forest').hidden) renderBoard(); } }, 10000);
+    db.collection('scores').limit(200).onSnapshot(sn => { clearTimeout(t); board = sn.docs.map(x => ({ id: x.id, ...(x.data() || {}) })); if (!$('forest').hidden) renderBoard(); }, () => { clearTimeout(t); board = board || []; if (!$('forest').hidden) renderBoard(); });
+  } catch (e) { db = null; }
+}
+async function pushScore() {
+  if (!db || !uid) return;
+  try { const f = readForest(), days = {}; f.filter(e => e.day).slice(0, 14).forEach(e => { days[e.day] = e.eff | 0; });
+    await db.doc('scores/' + uid).set({ days, glades: f.length, trees: f.reduce((a, e) => a + (e.trees | 0), 0), at: Date.now() }); } catch (e) {}
+}
+async function renderBoard() {
+  const note = $('f-note'), l1 = $('f-day'), l2 = $('f-big'), seq = ++boardSeq, day = today(); $('f-dayh').textContent = 'Поляна дня ' + dm(day);
+  l1.textContent = ''; l2.textContent = ''; $('f-boards').hidden = !db || !board;
+  if (!db) { note.textContent = 'Общий рейтинг виден тем, кто открыл игру в Claude под своим аккаунтом. Ваш лес хранится в этом браузере.'; return; }
+  if (!board) { note.textContent = 'Загружаю рейтинг…'; return; }
+  const rows = board.map(r => ({ id: String(r.id), e: r.days && typeof r.days === 'object' ? Number(r.days[day]) : NaN, g: Number(r.glades) || 0, t: Number(r.trees) || 0 }));
+  const a = rows.filter(r => r.e >= 0 && r.e <= 100).sort((x, y) => y.e - x.e).slice(0, 20), b = rows.filter(r => r.g > 0 && r.g <= 60).sort((x, y) => y.g - x.g || y.t - x.t).slice(0, 20);
+  let names = {}; try { names = await usr.profiles([...new Set([...a, ...b].map(r => r.id))]); } catch (e) {}
+  if (seq !== boardSeq) return;
+  const fill = (ol, list, val) => { ol.textContent = ''; for (const r of list) { const li = document.createElement('li'), n = document.createElement('span'), v = document.createElement('b'); n.textContent = ((names[r.id] && names[r.id].name) || 'Кто-то') + (r.id === uid ? ' (вы)' : ''); v.textContent = val(r); li.append(n, v); ol.append(li); } };
+  fill(l1, a, r => Math.round(r.e) + '%'); fill(l2, b, r => `${r.g} ${plural(r.g, 'поляна', 'поляны', 'полян')}`);
+  note.textContent = a.length || b.length ? '' : 'Пока никто не закончил ни одной поляны. Пройдите «Поляну дня» и нажмите «Готово».';
 }
 function setMode(m) { mode = m; $('m-grow').setAttribute('aria-pressed', m === 'grow'); $('m-cut').setAttribute('aria-pressed', m === 'cut'); }
 function hud() {
@@ -557,6 +706,11 @@ $('m-grow').onclick = () => setMode('grow');
 $('m-cut').onclick = () => setMode('cut');
 $('b-menu').onclick = () => showMenu(true);
 $('b-sound').onclick = e => { muted = !muted; e.currentTarget.setAttribute('aria-pressed', !muted); };
+$('b-done').onclick = finish;
+$('r-copy').onclick = () => { const el = $('r-share'), ok = () => { $('r-copy').textContent = 'Скопировано'; }, sel = () => { el.focus(); el.select(); $('r-copy').textContent = 'Выделено: скопируйте вручную'; };
+  try { navigator.clipboard.writeText(el.value).then(ok, sel); } catch (e) { sel(); } };
+$('r-forest').onclick = showForest; $('b-forest').onclick = showForest;
+$('r-menu').onclick = () => showMenu(true); $('f-back').onclick = () => showMenu(true);
 $('w-ideal').onclick = e => { S.ideal = !S.ideal; e.currentTarget.setAttribute('aria-pressed', S.ideal); };
 document.querySelectorAll('[data-level]').forEach(b => b.onclick = () => { wake(); init(b.dataset.level); setMode('grow'); showMenu(false); });
 window.addEventListener('resize', () => resize(false));
@@ -569,8 +723,8 @@ function frame(ts) {
   if (!document.hidden) { step(dt); draw(); if ((hudT += dt) > .25) { hudT = 0; hud(); } }
   requestAnimationFrame(frame);
 }
-resize(true); showMenu(true); hud();
-window.__myc = { get S() { return S; }, step, init, cut, showMenu, setMode, ptr };
+resize(true); showMenu(true); hud(); connect();
+window.__myc = { get S() { return S; }, step, init, cut, showMenu, setMode, ptr, finish, showForest, eff, readForest };
 requestAnimationFrame(frame);
 })();
 </script>
